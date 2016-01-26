@@ -2,12 +2,14 @@
 
 open System
 open System.IO
+open System.Net
 open System.Security.Cryptography
 open Qiniu
 open Qiniu.Util
 open Qiniu.Client
 
-let TEST_CONFIG_FILE = "TestConfig.json"
+let testPath = Environment.GetEnvironmentVariable("QINIU_TEST_PATH")
+let testConfig = "TestConfig.json"
 
 type TestConfig = {
     ACCESS_KEY : String
@@ -16,7 +18,7 @@ type TestConfig = {
     DOMAIN : String
 }
 
-let tc = File.ReadAllText(TEST_CONFIG_FILE) |> jsonToObject<TestConfig>
+let tc = File.ReadAllText(Path.Combine(testPath, testConfig)) |> jsonToObject<TestConfig>
 
 let c = client {
     config with
@@ -31,7 +33,7 @@ let ticks _ =
 
 let genFile (path : String) (size : Int32) =
     use file = File.Create(path)
-    let chunk = 1 <<< 12
+    let chunk = 1 <<< 14 // 16K
     let count = (size + chunk - 1) / chunk
     let chunkLast = size - (count - 1) * chunk
     let buf = Array.zeroCreate(chunk)
@@ -48,27 +50,38 @@ let md5 (s : Stream) =
     let ret = md5.ComputeHash(s)
     ret
 
-let checkCallRet (ret : RS.CallRet) =
-    match ret with
-    | RS.CallSucc -> ()
-    | RS.CallError e -> failwith e.error
-
-let checkStatRet (ret : RS.StatRet) =
-    match ret with
-    | RS.StatSucc _ -> ()
-    | RS.StatError e -> failwith e.error
-
-let checkFetchRet (ret : RS.FetchRet) =
-    match ret with
-    | RS.FetchSucc _ -> ()
-    | RS.FetchError e -> failwith e.error
-
-let checkOpRet (ret : RS.OpRet) =
-    match ret with
-    | RS.OpSucc | RS.OpStatSucc _ -> ()
-    | RS.OpError e -> failwith e.error
-
 let checkPutRet (ret : IO.PutRet) =
     match ret with
     | IO.PutSucc _ -> ()
     | IO.PutError e -> failwith e.error
+
+let check(o : Object) =
+    match o with
+    | :? RS.CallRet as ret -> RS.checkCallRet ret
+    | :? RS.StatRet as ret -> RS.checkStatRet ret
+    | :? RS.FetchRet as ret -> RS.checkFetchRet ret
+    | :? RS.OpRet as ret -> RS.checkOpRet ret
+    | :? IO.PutRet as ret -> checkPutRet ret
+    | _ -> failwith "unknown ret type"
+        
+let synchro = Async.RunSynchronously
+    
+let checkSynchro (ret : Async<'a>) =
+    ret |>> box |>> check |> synchro
+
+let putString (c : Client) (key : String, s : String) =
+    let e = entry tc.BUCKET key
+    let policy = { 
+        IO.putPolicy with
+            scope =  e.Scope
+            deadline = IO.defaultDeadline()
+    }
+    let token = IO.sign c policy
+    let extra = { IO.putExtra with mimeType = "text/plain" }
+    IO.put c token key (stringToStream s) extra
+
+let getString (c : Client) (key : String) =
+    let url = IO.publicUrl tc.DOMAIN key  
+    let req = WebRequest.Create url :?> HttpWebRequest
+    let resp = req.GetResponse()
+    resp.GetResponseStream() |> streamToString

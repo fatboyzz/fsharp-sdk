@@ -11,54 +11,62 @@ open TestBase
 
 [<TestFixture>]
 type RSTest() =
-    member this.PutString(key : String, s : String) =
-        let e = entry tc.BUCKET key
-        let policy = { 
-            IO.putPolicy with
-                scope =  e.Scope
-                deadline = IO.defaultDeadline()
-        }
-        let token = IO.sign c policy
-        let extra = { IO.putExtra with mimeType = "text/plain" }
-        IO.put c token key (stringToStream s) extra |> checkPutRet
-
-    member this.DownString(key : String) =
-        let url = IO.publicUrl tc.DOMAIN key  
-        let req = WebRequest.Create url :?> HttpWebRequest
-        let resp = req.GetResponse()
-        resp.GetResponseStream() |> streamToString
-
     [<Test>]
     member this.StatTest() =
-        this.PutString("stat.txt", "statstat")
+        putString c ("stat.txt", "statstat") |> checkSynchro
         let e = entry tc.BUCKET "stat.txt"
-        RS.stat c e |> checkStatRet
-        RS.delete c e |> checkCallRet
+        RS.stat c e |> checkSynchro
+        RS.delete c e |> checkSynchro
 
     [<Test>]
     member this.DeleteTest() =
-        this.PutString("deleteMe.txt", "deleteMe")
-        RS.delete c (entry tc.BUCKET "deleteMe.txt") |> checkCallRet
+        putString c ("deleteMe.txt", "deleteMe") |> checkSynchro
+        RS.delete c (entry tc.BUCKET "deleteMe.txt") |> checkSynchro
 
     [<Test>]
     member this.CopyTest() =
         let content = "orig"
-        this.PutString("copySrc.txt", content)
+        putString c ("copySrc.txt", content) |> checkSynchro
         let src = entry tc.BUCKET "copySrc.txt"
         let dst = entry tc.BUCKET "copyDst.txt"
-        RS.copy c src dst |> checkCallRet
-        let ret = this.DownString "copyDst.txt"
+        RS.copy c src dst |> checkSynchro
+        let ret = getString c "copyDst.txt"
         Assert.AreEqual(content, ret)
-        RS.delete c src |> checkCallRet
-        RS.delete c dst |> checkCallRet
+        RS.delete c src |> checkSynchro
+        RS.delete c dst |> checkSynchro
 
     [<Test>]
     member this.MoveTest() =
-        this.PutString("beforeMove.txt", "content")
+        putString c ("beforeMove.txt", "content") |> checkSynchro
         let src = entry tc.BUCKET "beforeMove.txt"
         let dst = entry tc.BUCKET "afterMove.txt"
-        RS.move c src dst |> checkCallRet
-        RS.delete c dst |> checkCallRet  
+        RS.move c src dst |> checkSynchro
+        RS.delete c dst |> checkSynchro
+
+    [<Test>]
+    member this.BatchTest() =
+        let entryOf (key : String) = entry tc.BUCKET key
+        putString c ("a.txt", "a") |> checkSynchro
+        putString c ("b.txt", "b") |> checkSynchro
+        [|
+            RS.OpMove(entryOf "a.txt", entryOf "temp.txt")
+            RS.OpMove(entryOf "b.txt", entryOf "a.txt")
+            RS.OpMove(entryOf "temp.txt", entryOf "b.txt")
+        |]
+        |> RS.batch c
+        |> Async.RunSynchronously
+        |> Seq.iter check
+
+        Assert.AreEqual("b", getString c "a.txt")
+        Assert.AreEqual("a", getString c "b.txt")
+        RS.delete c <| entryOf "a.txt" |> checkSynchro
+        RS.delete c <| entryOf "b.txt" |> checkSynchro
+
+    [<Test>]
+    member this.ChangeMimeTest() =
+        putString c ("changeMime.txt", "changeMime") |> checkSynchro
+        RS.changeMime c "text/html" (entry tc.BUCKET "changeMime.txt") |> checkSynchro
+        RS.delete c <| (entry tc.BUCKET "changeMime.txt") |> checkSynchro
 
     
     

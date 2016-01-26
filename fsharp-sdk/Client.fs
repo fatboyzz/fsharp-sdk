@@ -8,9 +8,6 @@ open Newtonsoft.Json
 open Util
 
 type Config = {
-    version : String
-    userAgent : String
-
     accessKey : String
     secretKey : String
 
@@ -48,8 +45,8 @@ type Mac =
     member this.SignRequest(req : HttpWebRequest, body : byte[]) =
         use buf = new MemoryStream()
         let uri = req.Address.PathAndQuery + "\n" |> stringToUtf8
-        writeBytes buf uri
-        if body <> null then writeBytes buf body
+        buf.Write(uri, 0, uri.Length)
+        if body <> null then buf.Write(body, 0, body.Length)
         let sign = buf.ToArray() |> this.Compute
         String.Format("{0}:{1}", this.AccessKey, sign)
 
@@ -73,15 +70,12 @@ type Entry =
 let entry bucket key = new Entry(bucket, key)
 
 
-let private version = "1.0"
-let private userAgent =
+let version = "1.0"
+let userAgent =
     let osver = Environment.OSVersion.Version.ToString()
     String.Format("QiniuFSharp/{0} ({1};)", version, osver)
 
 let config = {
-    version = version
-    userAgent = userAgent
-
     accessKey = "<Please apply your access key>"
     secretKey = "<Dont send your secret key to anyone>"
 
@@ -106,21 +100,38 @@ type Error = {
     error : String
 }
 
-let accepted (status : Int32) = status / 100 = 2
+let accepted (code : HttpStatusCode) = int32 code / 100 = 2
 
-let request (c : Client) (url : String) =
+let request (url : String) =
     let req = WebRequest.Create(url) :?> HttpWebRequest
-    req.UserAgent <- c.config.userAgent
+    req.UserAgent <- userAgent
     req
 
-let response (req : HttpWebRequest) =
-    let resp = (try req.GetResponse() 
-                with | :? WebException as e -> e.Response) :?> HttpWebResponse
-    let ok = int32 resp.StatusCode |> accepted
-    let json = if resp.ContentType = "application/json"
-               then resp.GetResponseStream() |> streamToString 
-               else ""
-    ok, json
+let requestStream (req : HttpWebRequest) =
+    Async.FromBeginEnd(req.BeginGetRequestStream, req.EndGetRequestStream)
+
+let responseCatched (req : HttpWebRequest) =
+    async {
+        try 
+            let! resp = req.AsyncGetResponse()
+            return resp :?> HttpWebResponse
+        with | :? WebException as e -> 
+            return e.Response :?> HttpWebResponse
+    }
+
+let responseJson (req : HttpWebRequest) =
+    async {
+        use! resp = responseCatched req
+        let ok = accepted resp.StatusCode
+        if resp.ContentType = "application/json"
+        then 
+            use stream = resp.GetResponseStream()
+            use reader = new StreamReader(stream)
+            let json = reader.ReadToEnd()
+            return ok, json
+        else 
+            return ok, "{ \"error\" : \"Response ContentType is not application/json\"}"
+    }
 
 let parse (wrapSucc : 'a -> 'c) (wrapError : 'b -> 'c) (ok : bool, json : String) =
     if ok then json |> jsonToObject<'a> |> wrapSucc

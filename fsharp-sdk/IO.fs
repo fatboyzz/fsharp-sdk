@@ -44,6 +44,13 @@ type PutExtra = {
     mimeType : String
 }
 
+type private PutParam = {
+    c : Client
+    token : String
+    key : String
+    extra : PutExtra
+}
+
 type PutSucc = {
     hash : String
     key : String
@@ -70,26 +77,27 @@ let putExtra = { zero<PutExtra> with crc32 = -1 }
 
 let parsePutRet = parse PutSucc PutError
 
-let put (c : Client) (token : String) (key : String) (stream : Stream) (extra : PutExtra) =
-    let customCheck (k : String, _) = k.StartsWith("x:")
-    let requestPut _ =
-        let req = request c c.config.upHost
+let private doput (param : PutParam) (input : Stream) =
+    let check (k : String, _) = k.StartsWith("x:")
+    let parts _ = 
         seq {
-            yield KVPart("token", token)
-            if nullOrEmpty key |> not then 
-                yield KVPart("key", key)
-            yield! extra.customs |> Seq.filter customCheck |> Seq.map KVPart
+            let extra = param.extra
+            yield KVPart("token", param.token)
+            if nullOrEmpty param.key |> not then 
+                yield KVPart("key", param.key)
+            yield! extra.customs |> Seq.filter check |> Seq.map KVPart
             if extra.checkCrc <> CheckCrc.NO_CHECK then 
                 yield KVPart("crc32", extra.crc32.ToString())
-            yield StreamPart(extra.mimeType, stream)
-        } |> writeRequest req 
-        req
-    requestPut() |> response |> parsePutRet
+            yield StreamPart(extra.mimeType, input)
+        }
+    async {
+        let req = request param.c.config.upHost
+        do! writeRequest req <| parts()
+        return! req |> responseJson |>> parsePutRet
+    }
 
-let putFile (c : Client) (token : String) (key : String) (path : String) (extra : PutExtra) =
-    use stream = File.OpenRead(path)
-    put c token key stream extra
-
+let put (c : Client) (token : String) (key : String) (input : Stream) (extra : PutExtra) =
+    doput { c = c; token = token; key = key; extra = extra } input
 
 let publicUrl (domain : String) (key : String) =
     String.Format("http://{0}/{1}", domain, Uri.EscapeUriString key)

@@ -12,12 +12,13 @@
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
     <Name>fsharp-sdk-test</Name>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <Tailcalls>false</Tailcalls>
+    <Tailcalls>true</Tailcalls>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
@@ -49,10 +50,12 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <None Include="TemplateTestConfig.json" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="TestBase.fs" />
     <Compile Include="IOTest.fs" />
     <Compile Include="RSTest.fs" />
+    <Compile Include="RSFTest.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -69,10 +72,6 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\fsharp-sdk\fsharp-sdk.fsproj">
       <Name>fsharp-sdk</Name>
       <Project>{c132e292-8991-42a4-b536-abb751430ef4}</Project>
