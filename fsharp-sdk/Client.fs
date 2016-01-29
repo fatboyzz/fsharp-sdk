@@ -122,7 +122,6 @@ let responseJson (req : HttpWebRequest) =
         use reader = new StreamReader(stream)
         let json = reader.ReadToEnd()
         return ok, json
-        
     }
 
 let parse (wrapSucc : 'a -> 'c) (wrapError : 'b -> 'c) (ok : bool, json : String) =

@@ -106,11 +106,11 @@ let checkOpRet (ret : OpRet) =
     | OpSucc | OpStatSucc _ -> ()
     | OpError e -> failwith e.error
 
-let stat (c : Client) (s : Entry) =
-    rsHostGet c (OpStat s) |>> parseStatRet
+let stat (c : Client) (en : Entry) =
+    rsHostGet c (OpStat en) |>> parseStatRet
 
-let delete (c : Client) (s : Entry) = 
-    rsHostGet c (OpDelete s) |>> parseCallRet
+let delete (c : Client) (en : Entry) = 
+    rsHostGet c (OpDelete en) |>> parseCallRet
 
 let copy (c : Client) (src : Entry) (dst : Entry) =
     rsHostGet c (OpCopy (src, dst)) |>> parseCallRet
@@ -118,14 +118,14 @@ let copy (c : Client) (src : Entry) (dst : Entry) =
 let move (c : Client) (src : Entry) (dst : Entry) =
     rsHostGet c (OpMove (src, dst)) |>> parseCallRet
 
-let fetch (c : Client) (url : String) (dst : Entry) = 
+let fetch (c : Client) (url : String) (dst : Entry) =
     String.Format("{0}/{1}/{2}/{3}/{4}", c.config.ioHost, "fetch", 
         stringToBase64Safe url, "to", dst.Encoded) 
     |> requestOp c |> responseJson |>> parseFetchRet
 
-let changeMime (c : Client) (mime : String) (s : Entry)  =
+let changeMime (c : Client) (mime : String) (en : Entry)  =
     String.Format("{0}/{1}/{2}/{3}/{4}", c.config.rsHost, "chgm",
-        s.Encoded, "mime", stringToBase64Safe mime) 
+        en.Encoded, "mime", stringToBase64Safe mime) 
     |> requestOp c |> responseJson |>> parseCallRet
 
 let batch (c : Client) (ops : Op[]) =
