@@ -6,7 +6,6 @@ open System.Net
 open System.Collections.Generic
 open Util
 open Client
-open IOPart
 
 type PutPolicy = {
     scope : String
@@ -32,10 +31,9 @@ type PutPolicy = {
 }
 
 type CheckCrc = 
-    | DEFAULT_CHECK = -1
-    | NO_CHECK = 0
-    | CHECK_AUTO = 1
-    | CHECK = 2
+| No = 0
+| Auto = 1
+| Check = 2
 
 type PutExtra = {
     customs : (String * String)[]
@@ -60,6 +58,10 @@ type PutRet =
 | PutSucc of PutSucc 
 | PutError of Error
 
+type Part =
+    | KVPart of key : String * value : String
+    | StreamPart of mime : String * input : Stream
+
 let unix = DateTime(1970, 1, 1)
 
 let scope (entry : Entry) = entry.Scope
@@ -77,22 +79,91 @@ let putExtra = { zero<PutExtra> with crc32 = -1 }
 
 let parsePutRet = parse PutSucc PutError
 
-let private doput (param : PutParam) (input : Stream) =
-    let check (k : String, _) = k.StartsWith("x:")
-    let parts _ = 
-        seq {
-            let extra = param.extra
-            yield KVPart("token", param.token)
-            if nullOrEmpty param.key |> not then 
-                yield KVPart("key", param.key)
-            yield! extra.customs |> Seq.filter check |> Seq.map KVPart
-            if extra.checkCrc <> CheckCrc.NO_CHECK then 
-                yield KVPart("crc32", extra.crc32.ToString())
-            yield StreamPart(extra.mimeType, input)
+let checkPutRet (ret : PutRet) =
+    match ret with
+    | PutSucc _ -> ()
+    | PutError e -> failwith e.error
+
+let private writePart (boundary : String) (output : Stream) (part : Part) =
+    let wso = stringToUtf8 >> output.AsyncWrite
+    let wsso = concat >> wso
+
+    let dispositionLine (name : String) =
+        [| 
+            @"Content-Disposition: form-data; "
+            (if nullOrEmpty name then "" else String.Format("name=\"{0}\";", name))
+            crlf
+        |] |> concat
+
+    let contentTypeLine (mime : String) = 
+        [|
+            @"Content-Type: "
+            (if nullOrEmpty mime then "application/octet-stream" else mime)
+            crlf
+        |] |> concat
+    
+    let writeKVPart (key : String) (value : String) =
+        [| dispositionLine key; crlf; value |] |> wsso
+
+    let writeStreamPart (mime : String) (input : Stream) =
+        async {
+            do! [|
+                    dispositionLine "file"
+                    contentTypeLine mime
+                    crlf
+                |] |> wsso
+            let buf = Array.zeroCreate (2 <<< 15)
+            do! asyncCopy buf input output
         }
+
     async {
+        let boundaryLine = String.Format("{0}--{1}{2}", crlf, boundary, crlf)
+        do! boundaryLine |> wso
+        match part with
+        | KVPart(key, value) -> do! writeKVPart key value
+        | StreamPart(mime, input) -> do! writeStreamPart mime input
+    }
+
+let private writeParts (req : HttpWebRequest) (parts : Part seq) =
+    async {
+        let boundary = String.Format("{0:N}", Guid.NewGuid())
+        let boundaryEnd = String.Format("{0}--{1}--{2}", crlf, boundary, crlf)
+        req.Method <- "POST"
+        req.ContentType <- "multipart/form-data; boundary=" + boundary
+        use! output = requestStream req
+        for part in parts do
+            do! writePart boundary output part
+        do! boundaryEnd |> stringToUtf8 |> output.AsyncWrite
+    }
+
+let private crcPart (extra : PutExtra) (input : Stream) =
+    seq {   
+        match extra.checkCrc with
+        | CheckCrc.No -> ()
+        | CheckCrc.Auto -> 
+            let crc = CRC32.hashIEEE 0u input
+            input.Position <- 0L
+            yield KVPart("crc32", crc.ToString())
+        | CheckCrc.Check -> 
+            yield KVPart("crc32", extra.crc32.ToString())
+        | _ -> failwith "Wrong extra.checkCrc"
+    }
+
+let private doput (param : PutParam) (input : Stream) =
+    async {
+        let check (k : String, _) = k.StartsWith("x:")
+        let parts = 
+            seq {
+                let extra = param.extra
+                yield KVPart("token", param.token)
+                if nullOrEmpty param.key |> not then 
+                    yield KVPart("key", param.key)
+                yield! extra.customs |> Seq.filter check |> Seq.map KVPart
+                yield! crcPart param.extra input
+                yield StreamPart(extra.mimeType, input)
+            }
         let req = request param.c.config.upHost
-        do! writeRequest req <| parts()
+        do! parts |> writeParts req
         return! req |> responseJson |>> parsePutRet
     }
 

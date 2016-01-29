@@ -42,9 +42,9 @@ type RSFTest() =
                 let! ret = RSF.list c tc.BUCKET listLimit "" "" marker
                 match ret with
                 | RSF.ListSucc succ ->
-                    let nextAcc = acc + succ.items.Length
-                    if nullOrEmpty succ.marker then return nextAcc
-                    else return! loop succ.marker nextAcc
+                    if nullOrEmpty succ.marker 
+                    then return acc + succ.items.Length
+                    else return! loop succ.marker (acc + succ.items.Length)
                 | RSF.ListError error -> 
                     return failwith error.error
             }

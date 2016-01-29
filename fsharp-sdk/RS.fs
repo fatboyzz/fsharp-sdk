@@ -86,6 +86,26 @@ let private rsHostGet (c : Client) (op : Op) =
     |> requestOp c
     |> responseJson
 
+let checkCallRet (ret : CallRet) =
+    match ret with
+    | CallSucc -> ()
+    | CallError e -> failwith e.error
+
+let checkStatRet (ret : StatRet) =
+    match ret with
+    | StatSucc _ -> ()
+    | StatError e -> failwith e.error
+
+let checkFetchRet (ret : FetchRet) =
+    match ret with
+    | FetchSucc _ -> ()
+    | FetchError e -> failwith e.error
+
+let checkOpRet (ret : OpRet) =
+    match ret with
+    | OpSucc | OpStatSucc _ -> ()
+    | OpError e -> failwith e.error
+
 let stat (c : Client) (s : Entry) =
     rsHostGet c (OpStat s) |>> parseStatRet
 
@@ -125,22 +145,3 @@ let batch (c : Client) (ops : Op[]) =
         return! req |> responseJson |>> parse
     }
     
-let checkCallRet (ret : CallRet) =
-    match ret with
-    | CallSucc -> ()
-    | CallError e -> failwith e.error
-
-let checkStatRet (ret : StatRet) =
-    match ret with
-    | StatSucc _ -> ()
-    | StatError e -> failwith e.error
-
-let checkFetchRet (ret : FetchRet) =
-    match ret with
-    | FetchSucc _ -> ()
-    | FetchError e -> failwith e.error
-
-let checkOpRet (ret : OpRet) =
-    match ret with
-    | OpSucc | OpStatSucc _ -> ()
-    | OpError e -> failwith e.error

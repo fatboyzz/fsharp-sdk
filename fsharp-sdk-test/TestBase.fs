@@ -50,18 +50,13 @@ let md5 (s : Stream) =
     let ret = md5.ComputeHash(s)
     ret
 
-let checkPutRet (ret : IO.PutRet) =
-    match ret with
-    | IO.PutSucc _ -> ()
-    | IO.PutError e -> failwith e.error
-
 let check(o : Object) =
     match o with
     | :? RS.CallRet as ret -> RS.checkCallRet ret
     | :? RS.StatRet as ret -> RS.checkStatRet ret
     | :? RS.FetchRet as ret -> RS.checkFetchRet ret
     | :? RS.OpRet as ret -> RS.checkOpRet ret
-    | :? IO.PutRet as ret -> checkPutRet ret
+    | :? IO.PutRet as ret -> IO.checkPutRet ret
     | _ -> failwith "unknown ret type"
         
 let synchro = Async.RunSynchronously

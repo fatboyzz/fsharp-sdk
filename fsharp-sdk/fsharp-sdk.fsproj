@@ -55,11 +55,12 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="packages.config" />
     <Compile Include="Base64Safe.fs" />
+    <Compile Include="CRC32.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="Client.fs" />
-    <Compile Include="IOPart.fs" />
     <Compile Include="IO.fs" />
     <Compile Include="RIO.fs" />
+    <Compile Include="D.fs" />
     <Compile Include="RD.fs" />
     <Compile Include="RS.fs" />
     <Compile Include="RSF.fs" />

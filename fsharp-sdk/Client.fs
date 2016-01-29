@@ -18,7 +18,6 @@ type Config = {
     ioHost : String
 }
 
-
 [<Struct>]
 type Mac = 
     val AccessKey : String
@@ -50,7 +49,6 @@ type Mac =
         let sign = buf.ToArray() |> this.Compute
         String.Format("{0}:{1}", this.AccessKey, sign)
 
-
 [<Struct>]
 type Entry = 
     val Bucket : String
@@ -69,7 +67,6 @@ type Entry =
 
 let entry bucket key = new Entry(bucket, key)
 
-
 let version = "1.0"
 let userAgent =
     let osver = Environment.OSVersion.Version.ToString()
@@ -79,13 +76,12 @@ let config = {
     accessKey = "<Please apply your access key>"
     secretKey = "<Dont send your secret key to anyone>"
 
-    rsHost = "http://rs.Qbox.me"
-    rsfHost = "http://rsf.Qbox.me"
+    rsHost = "http://rs.qbox.me"
+    rsfHost = "http://rsf.qbox.me"
 
     upHost = "http://up.qiniu.com"
     ioHost = "http://iovip.qbox.me"
 }
-
 
 type Client = {
     config : Config
@@ -94,7 +90,6 @@ type Client = {
 
 let client (config : Config) =
     { config = config; mac = new Mac(config) }
-
 
 type Error = {
     error : String
@@ -123,14 +118,11 @@ let responseJson (req : HttpWebRequest) =
     async {
         use! resp = responseCatched req
         let ok = accepted resp.StatusCode
-        if resp.ContentType = "application/json"
-        then 
-            use stream = resp.GetResponseStream()
-            use reader = new StreamReader(stream)
-            let json = reader.ReadToEnd()
-            return ok, json
-        else 
-            return ok, "{ \"error\" : \"Response ContentType is not application/json\"}"
+        use stream = resp.GetResponseStream()
+        use reader = new StreamReader(stream)
+        let json = reader.ReadToEnd()
+        return ok, json
+        
     }
 
 let parse (wrapSucc : 'a -> 'c) (wrapError : 'b -> 'c) (ok : bool, json : String) =

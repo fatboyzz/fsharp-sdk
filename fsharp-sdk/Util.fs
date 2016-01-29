@@ -98,13 +98,6 @@ let asyncCopy (buf : byte[]) (src : Stream) (dst : Stream) =
         }
     loop()
 
-let asyncReadAll (buf : byte[]) (src : Stream) =
-    async {
-        let ms = new MemoryStream()
-        do! asyncCopy buf src ms
-        return ms.ToArray()
-    }
-
 let limitedParallel (limit : Int32) (jobs : Async<'a>[]) =
     async {
         let length = jobs.Length

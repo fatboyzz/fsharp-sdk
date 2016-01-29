@@ -234,7 +234,5 @@ _Pvt_Extensions
 .fake/
 
 # fsharp-sdk
-small.dat
-big.dat
 TestConfig.json
 fsharp-sdk-console/

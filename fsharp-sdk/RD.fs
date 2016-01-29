@@ -3,17 +3,13 @@
 open System
 open System.IO
 open System.Net
-open Qiniu
-open Qiniu.Util
-open Qiniu.Client
+open Util
+open Client
+open D
 
 type ChunkSucc = {
     offset : Int32
 }
-
-type ChunkRet =
-| ChunkSucc of ChunkSucc
-| ChunkError of code : HttpStatusCode
 
 type Progress = {
     blockId : Int32
@@ -21,24 +17,25 @@ type Progress = {
     ret : ChunkSucc
 }
 
-type DownExtra = {
+type RDownExtra = {
     blockSize : Int32
     chunkSize : Int32
+    bufSize : Int32
     tryTimes : Int32
     worker : Int32
     progresses : Progress[]
     notify : Progress -> unit
 }
 
-type private DownParam = {
+type private RDownParam = {
     url : String
-    extra : DownExtra
+    extra : RDownExtra
     length : Int64
 }
 
-type DownRet = 
-| DownSucc
-| DownError of Error
+type private ChunkRet =
+| ChunkSucc of ChunkSucc
+| ChunkError of code : HttpStatusCode
 
 type private BlockCtx = {
     blockId : Int32
@@ -54,12 +51,13 @@ type private ContentRange = {
     complete : Int64
 }
     
-let downExtra = {
-    zero<DownExtra> with 
+let rdownExtra = {
+    zero<RDownExtra> with 
         blockSize = 1 <<< 22 // 4M
         chunkSize = 1 <<< 20 // 1M
+        bufSize = 1 <<< 15 // 32K
         tryTimes = 3
-        worker = 4
+        worker = 2
         notify = ignore
 }
 
@@ -67,7 +65,7 @@ let private acceptRange (resp : HttpWebResponse) =
     let s = resp.Headers.[HttpResponseHeader.AcceptRanges]
     if (nullOrEmpty s) then false else s = "bytes"
 
-let addRange (req : HttpWebRequest) (first : Int64) (last : Int64) =  
+let private addRange (req : HttpWebRequest) (first : Int64) (last : Int64) =  
     req.AddRange(first, last)
 
 let private parseContentRange (resp : HttpWebResponse) =
@@ -77,27 +75,24 @@ let private parseContentRange (resp : HttpWebResponse) =
 
 let private n = ref 0
 
-let private block (param : DownParam) (ctx : BlockCtx) =
+let private block (param : RDownParam) (ctx : BlockCtx) =
     let extra = param.extra
     let blockStart = int64 ctx.blockId * int64 extra.blockSize
-    let blockSize = ctx.blockSize
-    let chunkSize = extra.chunkSize
-    let downBuf = lazy Array.zeroCreate chunkSize
+    let buf = lazy Array.zeroCreate extra.bufSize
 
     let requestRange (offset : Int32) (length : Int32) =
         async {
             let req = request param.url
-            req.Method <- "POST"
+            req.Method <- "GET"
             let first = blockStart + int64 offset
             let last = first + int64 length - 1L
             addRange req first last
-            use! stream = requestStream req
             return req
         }
 
     let down (offset : Int32) =
         async {
-            let reqLength = min chunkSize (blockSize - offset)
+            let reqLength = min extra.chunkSize (ctx.blockSize - offset)
             let! req = requestRange offset reqLength
             use! resp = responseCatched req
             match accepted resp.StatusCode with
@@ -105,8 +100,9 @@ let private block (param : DownParam) (ctx : BlockCtx) =
                 let cr = parseContentRange resp
                 let respLength = int32 (cr.last - cr.first) + 1
                 use input = resp.GetResponseStream()
-                let! data = asyncReadAll (downBuf.Force()) input
-                ctx.writeAt (blockStart + int64 offset) data
+                use output = new MemoryStream(respLength)
+                let! data = asyncCopy (buf.Force()) input output
+                ctx.writeAt (blockStart + int64 offset) (output.ToArray())
                 let next = { offset = offset + respLength }
                 ctx.notify { blockId = ctx.blockId; blockSize = ctx.blockSize; ret = next }
                 return ChunkSucc next
@@ -116,7 +112,7 @@ let private block (param : DownParam) (ctx : BlockCtx) =
 
     let rec loop (times : Int32) (prev : ChunkRet) =
         match times < extra.tryTimes, prev with
-        | true, ChunkSucc succ when succ.offset = blockSize ->
+        | true, ChunkSucc succ when succ.offset = ctx.blockSize ->
             async { return prev }
         | true, ChunkSucc succ ->
             down succ.offset |!> loop 0
@@ -126,14 +122,15 @@ let private block (param : DownParam) (ctx : BlockCtx) =
 
     loop 0 ctx.prev
 
-let private doDown (param : DownParam) (output : FileStream) =
-    let blockSize = param.extra.blockSize
+let private doRDown (param : RDownParam) (output : FileStream) =
+    let extra = param.extra
+    let blockSize = extra.blockSize
     let blockCount = int32 ((param.length + int64 blockSize - 1L) / int64 blockSize)
     let blockLast = int32 (param.length - int64 blockSize * int64 (blockCount - 1))
     let blockSizeOfId (blockId : Int32) =
         if blockId = blockCount - 1 then blockLast else blockSize
 
-    let revProgresses = param.extra.progresses |> Array.rev
+    let revProgresses = extra.progresses |> Array.rev
         
     let outputLock = new Object()
     let writeAt (blockId : Int32) (offset : Int64) (data : byte[]) =
@@ -143,7 +140,7 @@ let private doDown (param : DownParam) (output : FileStream) =
         
     let notifyLock = new Object()
     let notify (p : Progress) =
-        lock notifyLock (fun _ -> param.extra.notify p)
+        lock notifyLock (fun _ -> extra.notify p)
 
     let work (blockId : Int32) =
         async {
@@ -165,7 +162,7 @@ let private doDown (param : DownParam) (output : FileStream) =
     async {
         let! rets = [| 0 .. blockCount - 1 |]
                     |> Array.map work
-                    |> limitedParallel param.extra.worker
+                    |> limitedParallel extra.worker
         if Array.forall check rets then return DownSucc
         else return DownError({ error = "Block not all done" }) 
     }
@@ -178,7 +175,7 @@ let private requestDummy (url : String) =
     async {
         let req = request url
         addRange req 0L 0L
-        use! resp = responseCatched req
+        use! resp = responseCatched req 
         match accepted resp.StatusCode, acceptRange resp with
         | true, true -> return parseContentRange resp |> DummySucc
         | true, false -> 
@@ -189,13 +186,13 @@ let private requestDummy (url : String) =
             return { error = error } |> DummyError
     }
 
-let down (url : String) (extra : DownExtra) (path : String) = 
+let rdown (url : String) (extra : RDownExtra) (path : String) = 
     async {
         let! ret = requestDummy url
         match ret with
         | DummySucc cr -> 
             use output = File.OpenWrite path
-            return! doDown { url = url; extra = extra; length = cr.complete } output
+            return! doRDown { url = url; extra = extra; length = cr.complete } output
         | DummyError error -> 
             return error |> DownError
     }

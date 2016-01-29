@@ -26,12 +26,13 @@ let private parseListRet = parse ListSucc ListError
 
 let list (c : Client) (bucket : String) (limit : Int32) (prefix : String) (delimiter : String) (marker : String) =
     let query = 
-        [| 
-            String.Format("bucket={0}", bucket)
-            (if limit = 0 then "" else String.Format("limit={0}", limit))
-            (if nullOrEmpty prefix then "" else String.Format("limit={0}", limit))
-            (if nullOrEmpty delimiter then "" else String.Format("delimiter={0}", delimiter))
-            (if nullOrEmpty marker then "" else String.Format("marker={0}", marker))
-        |] |> join "&"
+        seq { 
+            yield String.Format("bucket={0}", bucket)
+            if limit > 0 then yield String.Format("limit={0}", limit)
+            if nullOrEmpty prefix |> not then yield String.Format("prefix={0}", prefix)
+            if nullOrEmpty delimiter |> not then yield String.Format("delimiter={0}", delimiter)
+            if nullOrEmpty marker |> not then yield String.Format("marker={0}", marker)
+        } |> join "&"
     String.Format("{0}/list?{1}", c.config.rsfHost, query)
     |> requestOp c |> responseJson |>> parseListRet
+    

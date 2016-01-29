@@ -49,6 +49,15 @@ type IOTest() =
         Assert.AreEqual(smallMD5, this.GetMD5AndDelete key)
 
     [<Test>]
+    member this.PutCrcTest() =
+        let key = String.Format("{0}_{1}", ticks(), smallName)
+        let token = this.Token key
+        use stream = File.OpenRead smallPath
+        let extra = { IO.putExtra with checkCrc = IO.CheckCrc.Auto }
+        IO.put c token key stream extra |> checkSynchro
+        Assert.AreEqual(smallMD5, this.GetMD5AndDelete key)
+
+    [<Test>]
     member this.RPutTest() =
         let key = String.Format("{0}_{1}", ticks(), bigName)
         let token = this.Token key
