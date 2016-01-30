@@ -17,12 +17,12 @@ let mktable (poly : UInt32) =
     loop 0 0 0u
 
 let hash (table : UInt32[]) (crc : UInt32) (input : Stream) =
+    let buffered = new BufferedStream(input)
     let rec loop (crc : UInt32) =
-        match input.ReadByte() with
+        match buffered.ReadByte() with
         | -1 -> ~~~crc
         | v -> loop (table.[int (crc &&& 0xFFu) ^^^ v] ^^^ (crc >>> 8))
     loop ~~~crc
-
 
 let IEEEPoly = 0xedb88320u;
 let IEEETable = mktable IEEEPoly

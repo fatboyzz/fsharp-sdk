@@ -65,6 +65,16 @@ type private BlockCtx = {
     notify : Progress -> unit
 }
 
+let cleanProgresses (ps : Progress[]) =
+    let rec loop (acc : Progress list) (rps : Progress list) =
+        match rps with
+        | [] -> acc |> List.rev |> List.toArray
+        | head :: tail -> 
+            match acc |> List.tryFind (fun p -> p.blockId = head.blockId) with
+            | Some p -> loop acc tail
+            | None -> loop (head :: acc) tail
+    loop [] (ps |> Array.rev |> Array.toList)
+
 let private parseChunkRet = parse ChunkSucc ChunkError
 
 let private block (param : RPutParam) (ctx : BlockCtx) =
@@ -141,7 +151,7 @@ let private doRput (param : RPutParam) (input : Stream) =
         if blockId < blockCount - 1 then blockSize 
         else int32 (input.Length - int64 blockSize * int64 (blockCount - 1))
 
-    let revProgresses = extra.progresses |> Array.rev
+    let progresses = extra.progresses |> cleanProgresses
 
     let inputLock = new Object()
     let readAt (offset : Int64) (length : Int32) =
@@ -162,7 +172,7 @@ let private doRput (param : RPutParam) (input : Stream) =
                 blockId = blockId; blockSize = blockSizeOfId blockId; prev = prev; 
                 readAt = readAt; notify = notify 
             }
-            let progress = revProgresses |> Array.tryFind (fun p -> p.blockId = blockId) 
+            let progress = progresses |> Array.tryFind (fun p -> p.blockId = blockId) 
             match progress with
             | Some p -> return! blockCtx (ChunkSucc p.ret) |> block param
             | None -> return! blockCtx ChunkInit |> block param

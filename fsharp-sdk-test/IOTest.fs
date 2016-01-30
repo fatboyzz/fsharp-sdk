@@ -104,10 +104,8 @@ type IOTest() =
             }
             use stream = File.OpenRead bigPath
             let work = RIO.rput c token key stream extra 
-            try
-                 Async.RunSynchronously(work, -1, cs.Token)
+            try Async.RunSynchronously(work, -1, cs.Token)
             with | :? OperationCanceledException -> 
-                data.Dispose()
                 IO.PutError({ error = "Upload not done yet and just try again"})
         
         let rec loop count =

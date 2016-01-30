@@ -67,6 +67,3 @@ type RSTest() =
         putString c ("changeMime.txt", "changeMime") |> checkSynchro
         RS.changeMime c "text/html" (entry tc.BUCKET "changeMime.txt") |> checkSynchro
         RS.delete c <| (entry tc.BUCKET "changeMime.txt") |> checkSynchro
-
-    
-    
