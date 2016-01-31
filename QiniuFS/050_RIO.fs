@@ -131,7 +131,7 @@ let private mkfile (param : RPutParam) (total : Int64) (ctxs : String seq) =
                 "/mkfile/" + total.ToString()
                 "/key/" + (param.key |> stringToBase64Safe)
                 (if nullOrEmpty mime then "" else "/mimeType/" + stringToBase64Safe mime)
-                param.extra.customs |> Seq.map customUri |> String.Concat
+                param.extra.customs |> Array.map customUri |> String.Concat
             |] |> concat
         let req = request url
         req.Method <- "POST"

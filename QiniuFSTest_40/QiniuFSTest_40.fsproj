@@ -5,24 +5,23 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>72c82f68-aca5-4d6e-a7ea-1a14b9ed1ca2</ProjectGuid>
+    <ProjectGuid>466e6cf1-6886-4ebf-85e7-abc0a0881628</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>fsharp_sdk_test</RootNamespace>
-    <AssemblyName>fsharp_sdk_test</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <RootNamespace>QiniuFSTest_40</RootNamespace>
+    <AssemblyName>QiniuFSTest_40</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>fsharp-sdk-test</Name>
-    <TargetFrameworkProfile />
+    <Name>QiniuFSTest_40</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <Tailcalls>true</Tailcalls>
+    <Tailcalls>false</Tailcalls>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\fsharp_sdk_test.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\QiniuFSTest_40.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -31,7 +30,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\fsharp_sdk_test.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\QiniuFSTest_40.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -50,12 +49,18 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <None Include="TemplateTestConfig.json" />
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="TestBase.fs" />
-    <Compile Include="IOTest.fs" />
-    <Compile Include="RSTest.fs" />
-    <Compile Include="RSFTest.fs" />
+    <Compile Include="..\QiniuFSTest\000_TestBase.fs">
+      <Link>000_TestBase.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFSTest\010_IOTest.fs">
+      <Link>010_IOTest.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFSTest\020_RSTest.fs">
+      <Link>020_RSTest.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFSTest\030_RSFTest.fs">
+      <Link>030_RSFTest.fs</Link>
+    </Compile>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -64,17 +69,21 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>..\packages\Newtonsoft.Json.8.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\packages\Newtonsoft.Json.8.0.2\lib\net40\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="nunit.framework">
-      <HintPath>..\packages\NUnit.3.0.1\lib\net45\nunit.framework.dll</HintPath>
+      <HintPath>..\packages\NUnit.3.0.1\lib\net40\nunit.framework.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
-    <ProjectReference Include="..\fsharp-sdk\fsharp-sdk.fsproj">
-      <Name>fsharp-sdk</Name>
-      <Project>{c132e292-8991-42a4-b536-abb751430ef4}</Project>
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\QiniuFS_40\QiniuFS_40.fsproj">
+      <Name>QiniuFS_40</Name>
+      <Project>{56184d31-d1b7-482d-b9c4-422da5596463}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

@@ -234,5 +234,4 @@ _Pvt_Extensions
 .fake/
 
 # fsharp-sdk
-TestConfig.json
-fsharp-sdk-console/
+BuildPkg/

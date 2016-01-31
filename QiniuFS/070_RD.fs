@@ -66,7 +66,7 @@ let private acceptRange (resp : HttpWebResponse) =
     if (nullOrEmpty s) then false else s = "bytes"
 
 let private addRange (req : HttpWebRequest) (first : Int64) (last : Int64) =  
-    req.AddRange(first, last)
+    req.AddRange(int first, int last)
 
 let private parseContentRange (resp : HttpWebResponse) =
     let s = resp.Headers.[HttpResponseHeader.ContentRange]

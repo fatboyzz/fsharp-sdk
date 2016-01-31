@@ -5,26 +5,24 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>c132e292-8991-42a4-b536-abb751430ef4</ProjectGuid>
+    <ProjectGuid>387a0890-ebca-4ec0-a156-a557b299673f</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>fsharp_sdk</RootNamespace>
-    <AssemblyName>fsharp_sdk</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>fsharp-sdk</Name>
+    <RootNamespace>QiniuFSTest_20</RootNamespace>
+    <AssemblyName>QiniuFSTest_20</AssemblyName>
+    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFSharpCoreVersion>2.3.0.0</TargetFSharpCoreVersion>
+    <Name>QiniuFSTest_20</Name>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <Tailcalls>true</Tailcalls>
+    <Tailcalls>false</Tailcalls>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\fsharp_sdk.XML</DocumentationFile>
-    <OtherFlags>
-    </OtherFlags>
+    <DocumentationFile>bin\Debug\QiniuFSTest_20.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -33,18 +31,10 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\fsharp_sdk.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\QiniuFSTest_20.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release-20|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <OutputPath>bin\Release-20\</OutputPath>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug-20|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <OutputPath>bin\Debug-20\</OutputPath>
   </PropertyGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '11.0'">
@@ -60,18 +50,19 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="..\QiniuFSTest\000_TestBase.fs">
+      <Link>000_TestBase.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFSTest\010_IOTest.fs">
+      <Link>010_IOTest.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFSTest\020_RSTest.fs">
+      <Link>020_RSTest.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFSTest\030_RSFTest.fs">
+      <Link>030_RSFTest.fs</Link>
+    </Compile>
     <None Include="packages.config" />
-    <Compile Include="Base64Safe.fs" />
-    <Compile Include="CRC32.fs" />
-    <Compile Include="Util.fs" />
-    <Compile Include="Client.fs" />
-    <Compile Include="IO.fs" />
-    <Compile Include="RIO.fs" />
-    <Compile Include="D.fs" />
-    <Compile Include="RD.fs" />
-    <Compile Include="RS.fs" />
-    <Compile Include="RSF.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -79,10 +70,21 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>..\packages\Newtonsoft.Json.8.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\packages\Newtonsoft.Json.8.0.2\lib\net20\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="nunit.framework">
+      <HintPath>..\packages\NUnit.3.0.1\lib\net20\nunit.framework.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\QiniuFS_20\QiniuFS_20.fsproj">
+      <Name>QiniuFS_20</Name>
+      <Project>{bb129c9f-6cef-46ef-bfcb-8339bac54448}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

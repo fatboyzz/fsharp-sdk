@@ -86,7 +86,9 @@ let checkPutRet (ret : PutRet) =
 
 let private writePart (boundary : String) (output : Stream) (part : Part) =
     let wso = stringToUtf8 >> output.AsyncWrite
-    let wsso = concat >> wso
+    let wsso (ss : String[]) = 
+        let s = concat ss
+        wso s
 
     let dispositionLine (name : String) =
         [| 

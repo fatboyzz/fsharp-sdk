@@ -67,11 +67,11 @@ let writeJsons (output : Stream) (os : 'a seq) =
         js.Serialize(jw, o)
     jw.Flush()
 
-let concat (ss : String seq) = 
-    String.Concat ss
+let concat (ss : String[]) = 
+    String.Concat(ss)
 
-let join (sep : String) (ss : String seq) =
-    String.Join(sep, Seq.toArray ss)
+let join (sep : String) (ss : String[]) =
+    String.Join(sep, ss)
 
 let crlf = "\r\n"
 

@@ -32,7 +32,7 @@ let list (c : Client) (bucket : String) (limit : Int32) (prefix : String) (delim
             if nullOrEmpty prefix |> not then yield String.Format("prefix={0}", prefix)
             if nullOrEmpty delimiter |> not then yield String.Format("delimiter={0}", delimiter)
             if nullOrEmpty marker |> not then yield String.Format("marker={0}", marker)
-        } |> join "&"
+        } |> Seq.toArray |> join "&"
     String.Format("{0}/list?{1}", c.config.rsfHost, query)
     |> requestOp c |> responseJson |>> parseListRet
     
