@@ -1,4 +1,4 @@
-﻿module Qiniu.D
+﻿module QiniuFS.D
 
 open System
 open System.IO

@@ -1,12 +1,12 @@
-﻿namespace QiniuTest
+﻿namespace QiniuFSTest
 
 open System
 open System.IO
 open System.Net
 open NUnit.Framework
-open Qiniu
-open Qiniu.Util
-open Qiniu.Client
+open QiniuFS
+open QiniuFS.Util
+open QiniuFS.Client
 open TestBase
 
 [<TestFixture>]

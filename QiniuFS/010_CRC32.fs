@@ -1,4 +1,4 @@
-﻿module Qiniu.CRC32
+﻿module QiniuFS.CRC32
 
 open System
 open System.IO

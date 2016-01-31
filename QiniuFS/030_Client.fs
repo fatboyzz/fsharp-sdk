@@ -1,4 +1,4 @@
-﻿module Qiniu.Client
+﻿module QiniuFS.Client
 
 open System
 open System.IO

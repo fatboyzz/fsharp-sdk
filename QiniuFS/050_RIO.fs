@@ -1,13 +1,13 @@
-﻿module Qiniu.RIO
+﻿module QiniuFS.RIO
 
 open System
 open System.IO
 open System.Net
 open System.Collections
 open System.Threading
-open Qiniu.Util
-open Qiniu.Client
-open Qiniu.IO
+open Util
+open Client
+open IO
 
 type ChunkSucc = {
     ctx : String

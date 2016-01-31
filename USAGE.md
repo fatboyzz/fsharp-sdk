@@ -6,8 +6,8 @@ Qiniu F# SDK 使用指南
 - 所有例子均打开了以下空间和模块
 
 ```f#
-open Qiniu
-open Qiniu.Client
+open QiniuFS
+open QiniuFS.Client
 ```
 
 - 大部分 api 是异步调用。使用了 F# 异步流。

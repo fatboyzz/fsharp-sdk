@@ -1,4 +1,4 @@
-﻿module Qiniu.Base64Safe
+﻿module QiniuFS.Base64Safe
 
 open System
 

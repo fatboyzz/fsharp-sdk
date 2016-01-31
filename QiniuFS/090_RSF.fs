@@ -1,9 +1,9 @@
-﻿module Qiniu.RSF
+﻿module QiniuFS.RSF
 
 open System
-open Qiniu.Util
-open Qiniu.Client
-open Qiniu.RS
+open Util
+open Client
+open RS
 
 type ListItem = {
     key : String

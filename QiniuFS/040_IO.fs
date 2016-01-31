@@ -1,4 +1,4 @@
-﻿module Qiniu.IO
+﻿module QiniuFS.IO
 
 open System
 open System.IO
