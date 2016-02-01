@@ -65,8 +65,12 @@ let private acceptRange (resp : HttpWebResponse) =
     let s = resp.Headers.[HttpResponseHeader.AcceptRanges]
     if (nullOrEmpty s) then false else s = "bytes"
 
-let private addRange (req : HttpWebRequest) (first : Int64) (last : Int64) =  
-    req.AddRange(int first, int last)
+let private add = 
+    typeof<WebHeaderCollection>.GetMethod("AddWithoutValidate", 
+        Reflection.BindingFlags.Instance ||| Reflection.BindingFlags.NonPublic)
+
+let private addRange (req : HttpWebRequest) (first : Int64) (last : Int64) = 
+    add.Invoke(req.Headers, [| "Range"; String.Format("bytes={0}-{1}", first, last) |])
 
 let private parseContentRange (resp : HttpWebResponse) =
     let s = resp.Headers.[HttpResponseHeader.ContentRange]
@@ -122,7 +126,7 @@ let private block (param : RDownParam) (ctx : BlockCtx) =
 
     loop 0 ctx.prev
 
-let private doRDown (param : RDownParam) (output : FileStream) =
+let private doRDown (param : RDownParam) (output : Stream) =
     let extra = param.extra
     let blockSize = extra.blockSize
     let blockCount = int32 ((param.length + int64 blockSize - 1L) / int64 blockSize)
@@ -186,13 +190,18 @@ let private requestDummy (url : String) =
             return { error = error } |> DummyError
     }
 
-let rdown (url : String) (extra : RDownExtra) (path : String) = 
+let rdown (url : String) (extra : RDownExtra) (output : Stream) = 
     async {
         let! ret = requestDummy url
         match ret with
         | DummySucc cr -> 
-            use output = File.OpenWrite path
             return! doRDown { url = url; extra = extra; length = cr.complete } output
         | DummyError error -> 
             return error |> DownError
+    }
+
+let rdownFile (url : String) (extra : RDownExtra) (path : String) =
+    async {
+        use output = File.OpenWrite(path)
+        return! rdown url extra output
     }

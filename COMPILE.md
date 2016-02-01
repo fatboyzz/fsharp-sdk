@@ -26,7 +26,7 @@ Qiniu F# SDK 源码、编译、测试
 
 ## 测试
 
-下载 Visual Studio 的 Nunit 扩展。
+下载 Visual Studio 的 NUnit 扩展。
 - 工具 -> 扩展和更新 -> NUnit3 Test Adapter。
 - 测试 -> 窗口 -> 测试资源管理器
 

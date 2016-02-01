@@ -17,9 +17,13 @@ let downExtra = {
     bufSize = 1 <<< 15 // 32K
 }
 
-let down (url : String) (extra : DownExtra) (path : String) = 
+let checkDownRet (ret : DownRet) =
+    match ret with
+    | DownSucc -> ()
+    | DownError e -> failwith e.error
+
+let down (url : String) (extra : DownExtra) (output : Stream) = 
     async {
-        use output = File.OpenWrite(path)
         let buf : byte[] = Array.zeroCreate extra.bufSize
         let req = request url
         req.Method <- "GET"
@@ -34,3 +38,8 @@ let down (url : String) (extra : DownExtra) (path : String) =
             return DownError { error = error }
     }
     
+let downFile (url : String) (extra : DownExtra) (path : String) =
+    async {
+        use output = File.OpenWrite(path)
+        return! down url extra output
+    }

@@ -195,4 +195,9 @@ let private doRput (param : RPutParam) (input : Stream) =
 
 let rput (c : Client) (token : String) (key : String) (input : Stream) (extra : RPutExtra) =
     async { return! doRput { c = c; token = token; key = key; extra = extra } input }
-    
+
+let rputFile (c : Client) (token : String) (key : String) (path : String) (extra : RPutExtra) =
+    async {
+        use input = File.OpenRead(path)
+        return! rput c token key input extra
+    }

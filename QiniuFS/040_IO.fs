@@ -86,9 +86,7 @@ let checkPutRet (ret : PutRet) =
 
 let private writePart (boundary : String) (output : Stream) (part : Part) =
     let wso = stringToUtf8 >> output.AsyncWrite
-    let wsso (ss : String[]) = 
-        let s = concat ss
-        wso s
+    let wsso = concat >> wso
 
     let dispositionLine (name : String) =
         [| 
@@ -171,6 +169,13 @@ let private doput (param : PutParam) (input : Stream) =
 
 let put (c : Client) (token : String) (key : String) (input : Stream) (extra : PutExtra) =
     doput { c = c; token = token; key = key; extra = extra } input
+
+let putFile (c : Client) (token : String) (key : String) (path : String) (extra : PutExtra) =
+    async {
+        use input = File.OpenRead(path)
+        return! put c token key input extra
+    }
+
 
 let publicUrl (domain : String) (key : String) =
     String.Format("http://{0}/{1}", domain, Uri.EscapeUriString key)
