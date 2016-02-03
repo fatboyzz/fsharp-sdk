@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>QiniuFS</id>
+    <version>1.0.0</version>
+    <authors>fatboyzz</authors>
+    <owners>fatboyzz</owners>
+    <projectUrl>https://github.com/fatboyzz/fsharp-sdk</projectUrl>
+    <description>F# SDK for qiniu cloud storage</description>
+    <releaseNotes>Test release</releaseNotes>
+    <copyright>Copyright 2016</copyright>
+    <tags>qiniu F# f# fsharp</tags>
+    <dependencies>
+      <dependency id="Newtonsoft.Json" version="8.0.2"/>
+    </dependencies>
+  </metadata>
+</package>

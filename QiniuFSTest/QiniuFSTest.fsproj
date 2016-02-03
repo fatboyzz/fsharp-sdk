@@ -49,12 +49,12 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <None Include="packages.config" />
     <Compile Include="000_TestBase.fs" />
     <Compile Include="010_IOTest.fs" />
     <Compile Include="020_RSTest.fs" />
     <Compile Include="030_RSFTest.fs" />
     <Compile Include="040_DTest.fs" />
-    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

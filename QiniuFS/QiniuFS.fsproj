@@ -23,6 +23,9 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Debug\QiniuFS.XML</DocumentationFile>
+    <OtherFlags>-d:NET45</OtherFlags>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -32,6 +35,9 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Release\QiniuFS.XML</DocumentationFile>
+    <OtherFlags>-d:NET45</OtherFlags>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -50,17 +56,19 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="000_Base64Safe.fs" />
-    <Compile Include="010_CRC32.fs" />
-    <Compile Include="020_Util.fs" />
-    <Compile Include="030_Client.fs" />
-    <Compile Include="040_IO.fs" />
-    <Compile Include="050_RIO.fs" />
-    <Compile Include="060_D.fs" />
-    <Compile Include="070_RD.fs" />
-    <Compile Include="080_RS.fs" />
-    <Compile Include="090_RSF.fs" />
     <None Include="packages.config" />
+    <Compile Include="000_Util.fs" />
+    <Compile Include="010_Zero.fs" />
+    <Compile Include="020_Base64Safe.fs" />
+    <Compile Include="030_CRC32.fs" />
+    <Compile Include="040_QETag.fs" />
+    <Compile Include="050_Client.fs" />
+    <Compile Include="060_IO.fs" />
+    <Compile Include="070_RIO.fs" />
+    <Compile Include="080_D.fs" />
+    <Compile Include="090_RD.fs" />
+    <Compile Include="100_RS.fs" />
+    <Compile Include="110_RSF.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

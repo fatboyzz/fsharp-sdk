@@ -3,7 +3,7 @@
 open System
 open System.IO
 
-let mktable (poly : UInt32) =
+let private mktable (poly : UInt32) =
     let table : UInt32[] = Array.zeroCreate 256
     let rec loop (i : Int32) (j : Int32) (crc : UInt32) =
         match i, j with

@@ -47,24 +47,15 @@ let genNotExist (path : String) (size : Int32) =
     if File.Exists(path) |> not then
         genFile path size
 
-let md5 (input : Stream) =
-    use md5 = MD5.Create()
-    let ret = md5.ComputeHash(input)
-    ret
-
-let md5File (path : String) =
-    use input = File.OpenRead(path)
-    md5 input
-
 let smallName = "small.dat"
 let smallPath = Path.Combine(testPath, smallName)
 do genNotExist smallPath (1 <<< 20) // 1M
-let smallMD5 = using (File.OpenRead smallPath) md5
+let smallQETag = using (File.OpenRead smallPath) QETag.hash
 
 let bigName = "big.dat"
 let bigPath = Path.Combine(testPath, bigName)
 do genNotExist bigPath (1 <<< 23) // 8M
-let bigMD5 = using (File.OpenRead(bigPath)) md5
+let bigQETag = using (File.OpenRead bigPath) QETag.hash
 
 let check(o : Object) =
     match o with
@@ -96,7 +87,7 @@ let putString (c : Client) (key : String, s : String) =
 let getString (c : Client) (key : String) =
     let url = IO.publicUrl tc.DOMAIN key  
     let req = WebRequest.Create url :?> HttpWebRequest
-    let resp = req.GetResponse()
-    resp.GetResponseStream() 
-    |> streamToString
+    use resp = req.GetResponse()
+    use output = resp.GetResponseStream()
+    streamToString output
 

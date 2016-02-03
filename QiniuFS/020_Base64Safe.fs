@@ -1,21 +1,28 @@
 ﻿module QiniuFS.Base64Safe
 
 open System
+open Util
 
-let toUrl(c : Char) =
+let private toUrl(c : Char) =
     match c with
     | '+' -> '-'
     | '/' -> '_'
     | _ -> c
 
-let fromUrl(c : Char) =
+let private fromUrl(c : Char) =
     match c with
     | '-' -> '+'
     | '_' -> '/'
     | _ -> c
 
-let encode(bs : byte[]) : String =
+let fromBytes (bs : byte[]) =
     Convert.ToBase64String(bs) |> String.map toUrl
 
-let decode(s : String) : byte[] =
+let toBytes (s : String) =
     String.map fromUrl s |> Convert.FromBase64String
+
+let fromString =
+    stringToUtf8 >> fromBytes
+
+let toString =
+    toBytes >> utf8ToString

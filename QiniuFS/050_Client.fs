@@ -28,13 +28,13 @@ type Mac =
 
     member private this.Compute(bs : byte[]) =
         use hmac = new HMACSHA1(this.SecretKey)
-        hmac.ComputeHash(bs) |> Base64Safe.encode
+        hmac.ComputeHash(bs) |> Base64Safe.fromBytes
 
     member this.Sign(bs : byte[]) =
         String.Format("{0}:{1}", this.AccessKey, this.Compute bs)
 
     member this.SignWithData(bs : byte[]) =
-        let data = Base64Safe.encode bs
+        let data = Base64Safe.fromBytes bs
         let sign = data |> stringToUtf8 |> this.Compute
         String.Format("{0}:{1}:{2}", this.AccessKey, sign, data)
 
@@ -61,7 +61,7 @@ type Entry =
         String.Format("{0}:{1}", this.Bucket, this.Key) 
 
     member this.Encoded =
-        this.Scope |> stringToBase64Safe
+        this.Scope |> Base64Safe.fromString
 
     override this.ToString() = this.Scope
 

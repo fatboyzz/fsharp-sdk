@@ -49,6 +49,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <None Include="packages.config" />
     <Compile Include="..\QiniuFSTest\000_TestBase.fs">
       <Link>000_TestBase.fs</Link>
     </Compile>
@@ -61,7 +62,9 @@
     <Compile Include="..\QiniuFSTest\030_RSFTest.fs">
       <Link>030_RSFTest.fs</Link>
     </Compile>
-    <None Include="packages.config" />
+    <Compile Include="..\QiniuFSTest\040_DTest.fs">
+      <Link>040_DTest.fs</Link>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

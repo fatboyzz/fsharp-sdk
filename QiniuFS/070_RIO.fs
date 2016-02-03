@@ -12,7 +12,7 @@ open IO
 type ChunkSucc = {
     ctx : String
     checksum : String
-    crc32 : Int64
+    crc32 : UInt32
     offset : Int32
     host : String
 }
@@ -36,7 +36,7 @@ type RPutExtra = {
 }
 
 let rputExtra = {
-    zero<RPutExtra> with
+    Zero.instance<RPutExtra> with
         blockSize = 1 <<< 22 // 4M
         chunkSize = 1 <<< 20 // 1M
         bufSize = 1 <<< 15 // 32K
@@ -93,31 +93,37 @@ let private block (param : RPutParam) (ctx : BlockCtx) =
             req.ContentLength <- int64 length
             let data = ctx.readAt start length
             let input = new MemoryStream(data)
+            let crc32 = CRC32.hashIEEE 0u input
+            input.Position <- 0L
             use! output = requestStream req
             do! asyncCopy (buf.Force()) input output
             let! ret = req |> responseJson |>> parseChunkRet
             match ret with
-            | ChunkSucc succ -> 
-                ctx.notify { blockId = ctx.blockId; blockSize = ctx.blockSize; ret = succ }
-            | _ -> ()
-            return ret
+            | ChunkSucc succ when succ.crc32 = crc32 -> 
+                ctx.notify { blockId = ctx.blockId; blockSize = ctx.blockSize; ret = succ }; 
+                return ret
+            | ChunkSucc succ ->
+                return ChunkError({ error = "Invalid chunk crc32" })
+            | _ -> return ret
         }
 
     let rec loop (times : Int32) (prev : ChunkRet) =
-        match (times >= extra.tryTimes), prev with
-        | _, ChunkInit -> 
-            let url = String.Format("{0}/mkblk/{1}", param.c.config.upHost, ctx.blockSize)
-            put url 0 |!> loop 0
-        | _, ChunkSucc succ when succ.offset = ctx.blockSize  -> 
-            async { return prev }
-        | _, ChunkSucc succ -> 
-            let url = String.Format("{0}/bput/{1}/{2}", succ.host, succ.ctx, succ.offset)
-            put url succ.offset |!> loop 0
-        | false, ChunkError _ -> 
-            async { return! loop (times + 1) prev }
-        | true, _ -> 
-            async { return prev }
-    
+        async {
+            match (times >= extra.tryTimes), prev with
+            | _, ChunkInit -> 
+                let url = String.Format("{0}/mkblk/{1}", param.c.config.upHost, ctx.blockSize)
+                return! put url 0 |!> loop 0
+            | _, ChunkSucc succ when succ.offset = ctx.blockSize  -> 
+                return prev 
+            | _, ChunkSucc succ -> 
+                let url = String.Format("{0}/bput/{1}/{2}", succ.host, succ.ctx, succ.offset)
+                return! put url succ.offset |!> loop 0
+            | false, ChunkError _ -> 
+                return! loop (times + 1) prev
+            | true, _ -> 
+                return prev 
+        }
+
     loop 0 ctx.prev
 
 let private mkfile (param : RPutParam) (total : Int64) (ctxs : String seq) =
@@ -129,8 +135,8 @@ let private mkfile (param : RPutParam) (total : Int64) (ctxs : String seq) =
             [|
                 param.c.config.upHost
                 "/mkfile/" + total.ToString()
-                "/key/" + (param.key |> stringToBase64Safe)
-                (if nullOrEmpty mime then "" else "/mimeType/" + stringToBase64Safe mime)
+                "/key/" + Base64Safe.fromString param.key
+                (if nullOrEmpty mime then "" else "/mimeType/" + Base64Safe.fromString mime)
                 param.extra.customs |> Array.map customUri |> String.Concat
             |] |> concat
         let req = request url
@@ -152,15 +158,7 @@ let private doRput (param : RPutParam) (input : Stream) =
         else int32 (input.Length - int64 blockSize * int64 (blockCount - 1))
 
     let progresses = extra.progresses |> cleanProgresses
-
-    let inputLock = new Object()
-    let readAt (offset : Int64) (length : Int32) =
-        lock inputLock (fun _ -> 
-            let buf : byte[] = Array.zeroCreate length
-            input.Position <- offset
-            input.Read(buf, 0, length) |> ignore
-            buf
-        ) 
+    let readAt = readerAt input
 
     let notifyLock = new Object()
     let notify (p : Progress) =

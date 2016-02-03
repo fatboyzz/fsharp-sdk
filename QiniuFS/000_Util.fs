@@ -12,14 +12,8 @@ let unref (r : 'a ref) = !r
 let stringToUtf8 (s : String) =
     Encoding.UTF8.GetBytes(s)
 
-let stringToBase64Safe (s : String) =
-    s |> stringToUtf8 |> Base64Safe.encode
-
 let utf8ToString (bs : byte[]) =
     Encoding.UTF8.GetString(bs)
-
-let base64SafeToString (s : String) =
-    s |> Base64Safe.decode |> utf8ToString
 
 let streamToString (stream : Stream) =
     let reader = new StreamReader(stream, Encoding.UTF8)
@@ -73,13 +67,34 @@ let concat (ss : String[]) =
 let join (sep : String) (ss : String[]) =
     String.Join(sep, ss)
 
+let concatBytes (bss : byte[][]) =
+    let c = bss |> Array.map Array.length |> Array.sum
+    let s = new MemoryStream(c)
+    for bs in bss do
+        s.Write(bs, 0, bs.Length)
+    s.ToArray()
+
 let crlf = "\r\n"
 
 let nullOrEmpty = String.IsNullOrEmpty
 
-let headers (req : HttpWebRequest) =
-    let hs = req.Headers
-    hs.AllKeys |> Array.map (fun (key) -> (key, hs.[key]))
+let readerAt (input : Stream) =
+    let inputLock = new Object()
+    fun (offset : Int64) (length : Int32) ->
+        let buf : byte[] = Array.zeroCreate length
+        lock inputLock (fun _ ->
+            input.Position <- offset
+            input.Read(buf, 0, length) |> ignore
+            buf
+        )
+
+let writerAt (output : Stream) =
+    let outputLock = new Object()
+    fun (offset : Int64) (data : byte[]) ->
+        lock outputLock (fun _ -> 
+            output.Position <- offset
+            output.Write(data, 0, data.Length)
+        )
 
 let (|>>) (computaion : Async<'a>) (con : 'a -> 'b) =
     async.Bind(computaion, con >> async.Return)
@@ -116,36 +131,4 @@ let limitedParallel (limit : Int32) (jobs : Async<'a>[]) =
             |> Async.Ignore
         return rets
     }
-
-type FSharpType = Microsoft.FSharp.Reflection.FSharpType
-type FSharpValue = Microsoft.FSharp.Reflection.FSharpValue
-
-let isClass (t : Type) = t.IsClass
-let isValue (t : Type) = t.IsValueType
-let isRecord = FSharpType.IsRecord
-let isTuple = FSharpType.IsTuple
-let isArray (t : Type) = t.IsArray
-
-let rec private zeroInstance (t : Type) =
-    match t with
-    | _ when isValue t -> Activator.CreateInstance t
-    | _ when isRecord t -> zeroRecord t
-    | _ when isTuple t -> zeroTuple t
-    | _ when isArray t -> zeroArray t
-    | _ -> null
-
-and private zeroRecord (t : Type) =
-    FSharpType.GetRecordFields t
-    |> Array.map (fun p -> zeroInstance p.PropertyType)
-    |> (fun objs -> FSharpValue.MakeRecord (t, objs))
-
-and private zeroTuple (t : Type) =
-    FSharpType.GetTupleElements t
-    |> Array.map zeroInstance
-    |> (fun objs -> FSharpValue.MakeTuple (objs, t))
-
-and private zeroArray (t : Type) =
-    Array.CreateInstance(t.GetElementType(), 0) :> Object
-
-let zero<'a> : 'a = zeroInstance typeof<'a> :?> 'a
     

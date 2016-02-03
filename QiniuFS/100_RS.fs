@@ -5,7 +5,6 @@ open System.IO
 open System.Net
 open System.Text
 open Newtonsoft.Json
-open Newtonsoft.Json.Linq
 open Util
 open Client
 
@@ -120,12 +119,12 @@ let move (c : Client) (src : Entry) (dst : Entry) =
 
 let fetch (c : Client) (url : String) (dst : Entry) =
     String.Format("{0}/{1}/{2}/{3}/{4}", c.config.ioHost, "fetch", 
-        stringToBase64Safe url, "to", dst.Encoded) 
+        Base64Safe.fromString url, "to", dst.Encoded) 
     |> requestOp c |> responseJson |>> parseFetchRet
 
 let changeMime (c : Client) (mime : String) (en : Entry)  =
     String.Format("{0}/{1}/{2}/{3}/{4}", c.config.rsHost, "chgm",
-        en.Encoded, "mime", stringToBase64Safe mime) 
+        en.Encoded, "mime", Base64Safe.fromString mime) 
     |> requestOp c |> responseJson |>> parseCallRet
 
 let batch (c : Client) (ops : Op[]) =

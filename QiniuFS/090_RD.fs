@@ -52,7 +52,7 @@ type private ContentRange = {
 }
     
 let rdownExtra = {
-    zero<RDownExtra> with 
+    Zero.instance<RDownExtra> with 
         blockSize = 1 <<< 22 // 4M
         chunkSize = 1 <<< 20 // 1M
         bufSize = 1 <<< 15 // 32K
@@ -65,12 +65,18 @@ let private acceptRange (resp : HttpWebResponse) =
     let s = resp.Headers.[HttpResponseHeader.AcceptRanges]
     if (nullOrEmpty s) then false else s = "bytes"
 
+#if NET20
 let private add = 
     typeof<WebHeaderCollection>.GetMethod("AddWithoutValidate", 
-        Reflection.BindingFlags.Instance ||| Reflection.BindingFlags.NonPublic)
+        Reflection.BindingFlags.Instance ||| Reflection.BindingFlags.NonPublic)    
+#endif
 
 let private addRange (req : HttpWebRequest) (first : Int64) (last : Int64) = 
-    add.Invoke(req.Headers, [| "Range"; String.Format("bytes={0}-{1}", first, last) |])
+#if NET20
+    add.Invoke(req.Headers, [| "Range"; String.Format("bytes={0}-{1}", first, last) |]) |> ignore
+#else
+    req.AddRange(first, last)
+#endif
 
 let private parseContentRange (resp : HttpWebResponse) =
     let s = resp.Headers.[HttpResponseHeader.ContentRange]
@@ -115,14 +121,17 @@ let private block (param : RDownParam) (ctx : BlockCtx) =
         }
 
     let rec loop (times : Int32) (prev : ChunkRet) =
-        match times < extra.tryTimes, prev with
-        | true, ChunkSucc succ when succ.offset = ctx.blockSize ->
-            async { return prev }
-        | true, ChunkSucc succ ->
-            down succ.offset |!> loop 0
-        | true, ChunkError code ->
-            loop (times + 1) prev
-        | false, _ -> async { return prev }
+        async {
+            match times < extra.tryTimes, prev with
+            | true, ChunkSucc succ when succ.offset = ctx.blockSize ->
+                return prev 
+            | true, ChunkSucc succ ->
+                return! down succ.offset |!> loop 0
+            | true, ChunkError code ->
+                return! loop (times + 1) prev
+            | false, _ -> 
+                return prev
+        }
 
     loop 0 ctx.prev
 
@@ -135,12 +144,7 @@ let private doRDown (param : RDownParam) (output : Stream) =
         if blockId = blockCount - 1 then blockLast else blockSize
 
     let revProgresses = extra.progresses |> Array.rev
-        
-    let outputLock = new Object()
-    let writeAt (blockId : Int32) (offset : Int64) (data : byte[]) =
-        lock outputLock (fun _ -> 
-            output.Position <- offset
-            output.Write(data, 0, data.Length))
+    let writeAt = writerAt output
         
     let notifyLock = new Object()
     let notify (p : Progress) =
@@ -150,7 +154,7 @@ let private doRDown (param : RDownParam) (output : Stream) =
         async {
             let blockCtx (prev : ChunkRet) = { 
                 blockId = blockId; blockSize = blockSizeOfId blockId; 
-                prev = prev; writeAt = writeAt blockId; notify = notify 
+                prev = prev; writeAt = writeAt; notify = notify 
             }
             let progress = revProgresses |> Array.tryFind (fun p -> p.blockId = blockId) 
             match progress with
@@ -184,10 +188,10 @@ let private requestDummy (url : String) =
         | true, true -> return parseContentRange resp |> DummySucc
         | true, false -> 
             let error = "Response do not have header AcceptRanges : bytes"
-            return { error = error } |> DummyError
+            return DummyError { error = error } 
         | false, _ -> 
             let error = String.Format("Error StatusCode {0}", resp.StatusCode)
-            return { error = error } |> DummyError
+            return DummyError { error = error } 
     }
 
 let rdown (url : String) (extra : RDownExtra) (output : Stream) = 
@@ -196,8 +200,8 @@ let rdown (url : String) (extra : RDownExtra) (output : Stream) =
         match ret with
         | DummySucc cr -> 
             return! doRDown { url = url; extra = extra; length = cr.complete } output
-        | DummyError error -> 
-            return error |> DownError
+        | DummyError e -> 
+            return DownError e
     }
 
 let rdownFile (url : String) (extra : RDownExtra) (path : String) =

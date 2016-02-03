@@ -234,4 +234,4 @@ _Pvt_Extensions
 .fake/
 
 # fsharp-sdk
-BuildPkg/
+Scripts/lib/

@@ -23,6 +23,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Debug\QiniuFS_40.XML</DocumentationFile>
+    <OtherFlags>-d:NET40</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -32,6 +33,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Release\QiniuFS_40.XML</DocumentationFile>
+    <OtherFlags>-d:NET40</OtherFlags>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -51,35 +53,41 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <None Include="packages.config" />
-    <Compile Include="..\QiniuFS\000_Base64Safe.fs">
-      <Link>000_Base64Safe.fs</Link>
+    <Compile Include="..\QiniuFS\000_Util.fs">
+      <Link>000_Util.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\010_CRC32.fs">
-      <Link>010_CRC32.fs</Link>
+    <Compile Include="..\QiniuFS\010_Zero.fs">
+      <Link>010_Zero.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\020_Util.fs">
-      <Link>020_Util.fs</Link>
+    <Compile Include="..\QiniuFS\020_Base64Safe.fs">
+      <Link>020_Base64Safe.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\030_Client.fs">
-      <Link>030_Client.fs</Link>
+    <Compile Include="..\QiniuFS\030_CRC32.fs">
+      <Link>030_CRC32.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\040_IO.fs">
-      <Link>040_IO.fs</Link>
+    <Compile Include="..\QiniuFS\040_QETag.fs">
+      <Link>040_QETag.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\050_RIO.fs">
-      <Link>050_RIO.fs</Link>
+    <Compile Include="..\QiniuFS\050_Client.fs">
+      <Link>050_Client.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\060_D.fs">
-      <Link>060_D.fs</Link>
+    <Compile Include="..\QiniuFS\060_IO.fs">
+      <Link>060_IO.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\070_RD.fs">
-      <Link>070_RD.fs</Link>
+    <Compile Include="..\QiniuFS\070_RIO.fs">
+      <Link>070_RIO.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\080_RS.fs">
-      <Link>080_RS.fs</Link>
+    <Compile Include="..\QiniuFS\080_D.fs">
+      <Link>080_D.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\090_RSF.fs">
-      <Link>090_RSF.fs</Link>
+    <Compile Include="..\QiniuFS\090_RD.fs">
+      <Link>090_RD.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFS\100_RS.fs">
+      <Link>100_RS.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFS\110_RSF.fs">
+      <Link>110_RSF.fs</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup>

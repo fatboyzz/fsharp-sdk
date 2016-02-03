@@ -13,39 +13,43 @@ open TestBase
 
 [<TestFixture>]
 type IOTest() =
-    member this.GetMD5AndDelete(key : String) =
-        let url = IO.publicUrl tc.DOMAIN key
-        let req = WebRequest.Create url :?> HttpWebRequest
-        let resp = req.GetResponse()
-        let respStream = resp.GetResponseStream()
-        let hash = resp.GetResponseStream() |> md5
-        RS.delete c (entry tc.BUCKET key) |> checkSynchro
-        hash
+
+    member private this.PutWithExtraAsync (extra : IO.PutExtra) =
+        async {
+            let key = String.Format("{0}_{1}", ticks(), smallName)
+            let en = entry tc.BUCKET key
+            let token = uptoken key
+            let! ret = IO.putFile c token key smallPath extra 
+            match ret with
+            | IO.PutSucc succ -> 
+                do! RS.delete c en |>> check
+                Assert.AreEqual(smallQETag, succ.hash)
+            | IO.PutError e -> failwith e.error
+        } 
 
     [<Test>]
     member this.PutTest() =
-        let key = String.Format("{0}_{1}", ticks(), smallName)
-        let token = uptoken key
-        use stream = File.OpenRead smallPath
-        IO.put c token key stream IO.putExtra |> checkSynchro
-        Assert.AreEqual(smallMD5, this.GetMD5AndDelete key)
+        this.PutWithExtraAsync IO.putExtra 
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.PutCrcTest() =
-        let key = String.Format("{0}_{1}", ticks(), smallName)
-        let token = uptoken key
-        use stream = File.OpenRead smallPath
-        let extra = { IO.putExtra with checkCrc = IO.CheckCrc.Auto }
-        IO.put c token key stream extra |> checkSynchro
-        Assert.AreEqual(smallMD5, this.GetMD5AndDelete key)
+        this.PutWithExtraAsync { IO.putExtra with checkCrc = IO.CheckCrc.Auto }
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.RPutTest() =
-        let key = String.Format("{0}_{1}", ticks(), bigName)
-        let token = uptoken key
-        use stream = File.OpenRead bigPath
-        RIO.rput c token key stream RIO.rputExtra |> checkSynchro
-        Assert.AreEqual(bigMD5, this.GetMD5AndDelete key)
+        async {
+            let key = String.Format("{0}_{1}", ticks(), bigName)
+            let en = entry tc.BUCKET key
+            let token = uptoken key
+            let! ret = RIO.rputFile c token key bigPath RIO.rputExtra
+            match ret with
+            | IO.PutSucc succ -> 
+                do! RS.delete c en |>> check
+                Assert.AreEqual(bigQETag, succ.hash)
+            | IO.PutError e -> failwith e.error
+        } |> Async.RunSynchronously
 
     [<Test>]
     member this.ResumebleRPutTest() =
@@ -54,6 +58,7 @@ type IOTest() =
         if File.Exists(progressesPath) then File.Delete(progressesPath)
 
         let key = String.Format("{0}_{1}", ticks(), bigName)
+        let en = entry tc.BUCKET key
         let token = uptoken key
         let notifyCancelCount = 10
 
@@ -83,10 +88,9 @@ type IOTest() =
                     RIO.progresses = progresses
                     RIO.notify = notify
             }
-            use stream = File.OpenRead bigPath
 
-            let work = RIO.rput c token key stream extra 
-
+            use input = File.OpenRead bigPath
+            let work = RIO.rput c token key input extra 
             try Async.RunSynchronously(work, -1, cs.Token)
             with | :? OperationCanceledException -> 
                 IO.PutError({ error = "Upload not done yet and just try again"})
@@ -94,7 +98,8 @@ type IOTest() =
         let rec loop count =
             match upload() with
             | IO.PutSucc succ ->
-                Assert.AreEqual(bigMD5, this.GetMD5AndDelete key)
+                RS.delete c en |> checkSynchro
+                Assert.AreEqual(bigQETag, succ.hash)
             | IO.PutError error ->
                 loop (count + 1)
 

@@ -74,8 +74,8 @@ let sign (c : Client) = c.mac.SignWithObject
 let defaultExpire = TimeSpan.FromSeconds(3600.0) 
 let defaultDeadline _ = deadline defaultExpire
 
-let putPolicy = zero<PutPolicy>
-let putExtra = { zero<PutExtra> with crc32 = -1 }
+let putPolicy = Zero.instance<PutPolicy>
+let putExtra = { Zero.instance<PutExtra> with crc32 = -1 }
 
 let parsePutRet = parse PutSucc PutError
 
