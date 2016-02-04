@@ -61,7 +61,7 @@ type private BlockCtx = {
     blockId : Int32
     blockSize : Int32
     prev : ChunkRet
-    readAt : Int64 -> Int32 -> byte[]
+    readAt : Int64 -> Int32 -> Slice<byte>
     notify : Progress -> unit
 }
 
@@ -91,10 +91,12 @@ let private block (param : RPutParam) (ctx : BlockCtx) =
             let start = blockStart + int64 offset
             let length = min extra.chunkSize (ctx.blockSize - offset)
             req.ContentLength <- int64 length
-            let data = ctx.readAt start length
-            let input = new MemoryStream(data)
+
+            let s = ctx.readAt start length
+            let input = new MemoryStream(s.buf, s.offset, s.count)
             let crc32 = CRC32.hashIEEE 0u input
             input.Position <- 0L
+
             use! output = requestStream req
             do! asyncCopy (buf.Force()) input output
             let! ret = req |> responseJson |>> parseChunkRet

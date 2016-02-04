@@ -5,9 +5,13 @@ open System.Security.Cryptography
 open System.IO
 open Util
 
+let sha1Slice (s : Slice<byte>) =
+    use h = SHA1.Create()
+    h.ComputeHash(s.buf, s.offset, s.count)
+
 let sha1Bytes (bs : byte[]) =
     use h = SHA1.Create()
-    h.ComputeHash bs
+    h.ComputeHash(bs)
 
 let sha1Stream (input : Stream) =
     use h = SHA1.Create()
@@ -27,7 +31,7 @@ let private hashBig (input : Stream) =
     let work (blockId : Int32) =
         async {
             let blockStart = int64 blockId * int64 blockSize
-            return readAt blockStart blockSize |> sha1Bytes
+            return readAt blockStart blockSize |> sha1Slice
         }
     async {
         let! rets = [| 0 .. blockCount - 1 |]

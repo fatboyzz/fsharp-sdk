@@ -5,7 +5,17 @@ open System.IO
 open System.Text
 open System.Net
 open System.Threading
+open System.Collections.Generic
 open Newtonsoft.Json
+
+type Slice<'a> = {
+    buf : 'a[]
+    offset : Int32
+    count : Int32
+}
+
+let arrayToSlice (e : 'a[]) =
+    { buf = e; offset = 0; count = e.Length }
 
 let unref (r : 'a ref) = !r
 
@@ -84,8 +94,8 @@ let readerAt (input : Stream) =
         let buf : byte[] = Array.zeroCreate length
         lock inputLock (fun _ ->
             input.Position <- offset
-            input.Read(buf, 0, length) |> ignore
-            buf
+            let count = input.Read(buf, 0, length)
+            { buf = buf; offset = 0; count = count }
         )
 
 let writerAt (output : Stream) =
@@ -107,7 +117,7 @@ let asyncCopy (buf : byte[]) (src : Stream) (dst : Stream) =
     let rec loop _ =
         async {
             let! n = src.AsyncRead(buf, 0, length)
-            if n <> 0 then 
+            if n > 0 then 
                 do! dst.AsyncWrite(buf, 0, n)
                 return! loop()
         }

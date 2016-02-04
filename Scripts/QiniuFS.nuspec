@@ -2,12 +2,12 @@
 <package >
   <metadata>
     <id>QiniuFS</id>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <authors>fatboyzz</authors>
     <owners>fatboyzz</owners>
     <projectUrl>https://github.com/fatboyzz/fsharp-sdk</projectUrl>
     <description>F# SDK for qiniu cloud storage</description>
-    <releaseNotes>Test release</releaseNotes>
+    <releaseNotes>Add QETag support, reprogrammed test cases.</releaseNotes>
     <copyright>Copyright 2016</copyright>
     <tags>qiniu F# f# fsharp</tags>
     <dependencies>
