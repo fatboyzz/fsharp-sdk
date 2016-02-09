@@ -21,10 +21,10 @@ type IOTest() =
             let token = uptoken key
             let! ret = IO.putFile c token key smallPath extra 
             match ret with
-            | IO.PutSucc succ -> 
-                do! RS.delete c en |>> check
+            | Succ succ -> 
+                do! RS.delete c en |>> ignoreRet
                 Assert.AreEqual(smallQETag, succ.hash)
-            | IO.PutError e -> failwith e.error
+            | Error e -> failwith e.error
         } 
 
     [<Test>]
@@ -45,10 +45,10 @@ type IOTest() =
             let token = uptoken key
             let! ret = RIO.rputFile c token key bigPath RIO.rputExtra
             match ret with
-            | IO.PutSucc succ -> 
-                do! RS.delete c en |>> check
+            | Succ succ -> 
+                do! RS.delete c en |>> ignoreRet
                 Assert.AreEqual(bigQETag, succ.hash)
-            | IO.PutError e -> failwith e.error
+            | Error e -> failwith e.error
         } |> Async.RunSynchronously
 
     [<Test>]
@@ -71,15 +71,15 @@ type IOTest() =
                     |> RIO.cleanProgresses
                 else Array.zeroCreate<RIO.Progress> 0
             
-            use data = File.Create(progressesPath)
-            writeJsons data progresses
+            use progressStream = File.Create(progressesPath)
+            writeJsons progressStream progresses
 
             let cs = new CancellationTokenSource()
             
             let notifyCount = ref -1
             let notify (p : RIO.Progress) =  
                 incr notifyCount
-                writeJson data p
+                writeJson progressStream p
                 if unref notifyCount = notifyCancelCount then
                     cs.Cancel()
             
@@ -93,14 +93,14 @@ type IOTest() =
             let work = RIO.rput c token key input extra 
             try Async.RunSynchronously(work, -1, cs.Token)
             with | :? OperationCanceledException -> 
-                IO.PutError({ error = "Upload not done yet and just try again"})
+                Error { error = "Upload not done yet and just try again" }
         
         let rec loop count =
             match upload() with
-            | IO.PutSucc succ ->
-                RS.delete c en |> checkSynchro
+            | Succ succ ->
+                RS.delete c en |> ignoreRetSynchro
                 Assert.AreEqual(bigQETag, succ.hash)
-            | IO.PutError error ->
+            | Error error ->
                 loop (count + 1)
 
         loop 0  

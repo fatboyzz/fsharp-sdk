@@ -23,22 +23,22 @@ type DTest() =
     [<Test>]
     member this.DTest() =
         async {
-            do! IO.putFile c (uptoken smallKey) smallKey smallPath IO.putExtra |>> check
-            do! D.downFile smallUrl D.downExtra downSmallPath |>> check
+            do! IO.putFile c (uptoken smallKey) smallKey smallPath IO.putExtra |>> ignoreRet
+            do! D.downFile smallUrl D.downExtra downSmallPath |>> ignoreRet
             let downQETag = QETag.hashFile downSmallPath
             if File.Exists downSmallPath then File.Delete downSmallPath
-            do! RS.delete c smallEntry |>> check
+            do! RS.delete c smallEntry |>> ignoreRet
             Assert.AreEqual(smallQETag, downQETag)
         } |> Async.RunSynchronously
 
     [<Test>]
     member this.RDTest() =
         async {
-            do! RIO.rputFile c (uptoken bigKey) bigKey bigPath RIO.rputExtra |>> check
-            do! RD.rdownFile bigUrl RD.rdownExtra downBigPath |>> check
+            do! IO.putFile c (uptoken bigKey) bigKey bigPath IO.putExtra |>> ignoreRet
+            do! RD.rdownFile bigUrl RD.rdownExtra downBigPath |>> ignoreRet
             let downQETag = QETag.hashFile downBigPath
             if File.Exists downBigPath then File.Delete downBigPath
-            do! RS.delete c bigEntry |>> check
+            do! RS.delete c bigEntry |>> ignoreRet
             Assert.AreEqual(bigQETag, downQETag)
         } |> Async.RunSynchronously
         

@@ -21,7 +21,7 @@ type RSFTest() =
             putString c (s, s))
         |> Async.Parallel
         |> Async.RunSynchronously
-        |> Array.map check
+        |> Array.map ignoreRet
         |> ignore
 
     [<TearDown>]
@@ -32,7 +32,7 @@ type RSFTest() =
             RS.delete c e)
         |> Async.Parallel
         |> Async.RunSynchronously
-        |> Array.map check
+        |> Array.map ignoreRet
         |> ignore
 
     [<Test>]
@@ -41,12 +41,12 @@ type RSFTest() =
             async {
                 let! ret = RSF.list c tc.BUCKET listLimit "" "" marker
                 match ret with
-                | RSF.ListSucc succ ->
+                | Succ succ ->
                     if nullOrEmpty succ.marker 
                     then return acc + succ.items.Length
                     else return! loop succ.marker (acc + succ.items.Length)
-                | RSF.ListError error -> 
-                    return failwith error.error
+                | Error e -> 
+                    return failwith e.error
             }
         let acc = loop "" 0 |> Async.RunSynchronously
         Assert.AreEqual(listLength, acc)

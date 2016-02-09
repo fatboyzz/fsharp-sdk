@@ -65,6 +65,9 @@
     <Compile Include="..\QiniuFSTest\040_DTest.fs">
       <Link>040_DTest.fs</Link>
     </Compile>
+    <Compile Include="..\QiniuFSTest\050_FOPTest.fs">
+      <Link>050_FOPTest.fs</Link>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

@@ -33,14 +33,10 @@ type private RDownParam = {
     length : Int64
 }
 
-type private ChunkRet =
-| ChunkSucc of ChunkSucc
-| ChunkError of code : HttpStatusCode
-
 type private BlockCtx = {
     blockId : Int32
     blockSize : Int32
-    prev : ChunkRet
+    prev : ChunkSucc
     writeAt : Int64 -> byte[] -> unit
     notify : Progress -> unit
 }
@@ -52,13 +48,13 @@ type private ContentRange = {
 }
     
 let rdownExtra = {
-    Zero.instance<RDownExtra> with 
-        blockSize = 1 <<< 22 // 4M
-        chunkSize = 1 <<< 20 // 1M
-        bufSize = 1 <<< 15 // 32K
-        tryTimes = 3
-        worker = 2
-        notify = ignore
+    blockSize = 1 <<< 22 // 4M
+    chunkSize = 1 <<< 21 // 2M
+    bufSize = 1 <<< 15 // 32K
+    tryTimes = 3
+    worker = 2
+    progresses = Array.empty
+    notify = ignore
 }
 
 let private acceptRange (resp : HttpWebResponse) =
@@ -91,49 +87,43 @@ let private block (param : RDownParam) (ctx : BlockCtx) =
     let buf = lazy Array.zeroCreate extra.bufSize
 
     let requestRange (offset : Int32) (length : Int32) =
-        async {
-            let req = request param.url
-            req.Method <- "GET"
-            let first = blockStart + int64 offset
-            let last = first + int64 length - 1L
-            addRange req first last
-            return req
-        }
+        let req = requestUrl param.url
+        req.Method <- "GET"
+        let first = blockStart + int64 offset
+        let last = first + int64 length - 1L
+        addRange req first last
+        req
 
     let down (offset : Int32) =
         async {
             let reqLength = min extra.chunkSize (ctx.blockSize - offset)
-            let! req = requestRange offset reqLength
-            use! resp = responseCatched req
-            match accepted resp.StatusCode with
+            let req = requestRange offset reqLength
+            let data = new MemoryStream()
+            let! code = responseCopy (buf.Force()) req data
+            match accepted code with
             | true ->
-                let cr = parseContentRange resp
-                let respLength = int32 (cr.last - cr.first) + 1
-                use input = resp.GetResponseStream()
-                use output = new MemoryStream(respLength)
-                let! data = asyncCopy (buf.Force()) input output
-                ctx.writeAt (blockStart + int64 offset) (output.ToArray())
-                let next = { offset = offset + respLength }
+                ctx.writeAt (blockStart + int64 offset) (data.ToArray())
+                let next = { offset = offset + int32 data.Length }
                 ctx.notify { blockId = ctx.blockId; blockSize = ctx.blockSize; ret = next }
-                return ChunkSucc next
+                return Succ next
             | false ->
-                return ChunkError resp.StatusCode
+                return Error { error = String.Format("Response chunk with status code {0}", code) }
         }
 
-    let rec loop (times : Int32) (prev : ChunkRet) =
+    let rec loop (times : Int32) (prev : ChunkSucc) (cur : Ret<ChunkSucc>) =
         async {
-            match times < extra.tryTimes, prev with
-            | true, ChunkSucc succ when succ.offset = ctx.blockSize ->
-                return prev 
-            | true, ChunkSucc succ ->
-                return! down succ.offset |!> loop 0
-            | true, ChunkError code ->
-                return! loop (times + 1) prev
+            match times < extra.tryTimes, cur with
+            | true, Succ c when c.offset = ctx.blockSize ->
+                return cur 
+            | true, Succ c ->
+                return! down c.offset |!> loop times c
+            | true, Error _ ->
+                return! loop (times + 1) prev (Succ prev)
             | false, _ -> 
-                return prev
+                return cur
         }
 
-    loop 0 ctx.prev
+    loop 0 ctx.prev (Succ ctx.prev)
 
 let private doRDown (param : RDownParam) (output : Stream) =
     let extra = param.extra
@@ -152,56 +142,45 @@ let private doRDown (param : RDownParam) (output : Stream) =
 
     let work (blockId : Int32) =
         async {
-            let blockCtx (prev : ChunkRet) = { 
+            let blockCtx (prev : ChunkSucc) = { 
                 blockId = blockId; blockSize = blockSizeOfId blockId; 
                 prev = prev; writeAt = writeAt; notify = notify 
             }
             let progress = revProgresses |> Array.tryFind (fun p -> p.blockId = blockId) 
             match progress with
-            | Some p -> return! ChunkSucc p.ret |> blockCtx |> block param 
-            | None -> return! ChunkSucc { offset = 0 } |> blockCtx |> block param 
+            | Some p -> return! p.ret |> blockCtx |> block param 
+            | None -> return! { offset = 0 } |> blockCtx |> block param 
         }
-
-    let check (ret : ChunkRet) =
-        match ret with
-        | ChunkSucc succ -> true
-        | _ -> false
-        
+    
     async {
         let! rets = [| 0 .. blockCount - 1 |]
                     |> Array.map work
                     |> limitedParallel extra.worker
-        if Array.forall check rets then return DownSucc
-        else return DownError({ error = "Block not all done" }) 
+        if Array.forall checkRet rets 
+        then return Succ ()
+        else return Error { error = "Block not all done" }
     }
 
-type private DummyRet =
-    | DummySucc of ContentRange
-    | DummyError of Error
-
-let private requestDummy (url : String) =
+let private responseDummy (url : String) =
     async {
-        let req = request url
+        let req = requestUrl url
         addRange req 0L 0L
         use! resp = responseCatched req 
         match accepted resp.StatusCode, acceptRange resp with
-        | true, true -> return parseContentRange resp |> DummySucc
+        | true, true -> 
+            return parseContentRange resp |> Succ
         | true, false -> 
-            let error = "Response do not have header AcceptRanges : bytes"
-            return DummyError { error = error } 
+            return Error { error = "Response do not have header AcceptRanges : bytes" } 
         | false, _ -> 
-            let error = String.Format("Error StatusCode {0}", resp.StatusCode)
-            return DummyError { error = error } 
+            return Error { error = String.Format("Response dummy with status code {0}", resp.StatusCode) } 
     }
 
 let rdown (url : String) (extra : RDownExtra) (output : Stream) = 
     async {
-        let! ret = requestDummy url
+        let! ret = responseDummy url
         match ret with
-        | DummySucc cr -> 
-            return! doRDown { url = url; extra = extra; length = cr.complete } output
-        | DummyError e -> 
-            return DownError e
+        | Succ cr -> return! doRDown { url = url; extra = extra; length = cr.complete } output
+        | Error e -> return Error e
     }
 
 let rdownFile (url : String) (extra : RDownExtra) (path : String) =

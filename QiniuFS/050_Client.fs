@@ -13,9 +13,11 @@ type Config = {
 
     rsHost : String
     rsfHost : String
+    
+    apiHost : String
 
-    upHost : String
     ioHost : String
+    upHost : String
 }
 
 [<Struct>]
@@ -65,6 +67,7 @@ type Entry =
 
     override this.ToString() = this.Scope
 
+
 let entry bucket key = new Entry(bucket, key)
 
 let version = "1.0"
@@ -79,8 +82,10 @@ let config = {
     rsHost = "http://rs.qbox.me"
     rsfHost = "http://rsf.qbox.me"
 
-    upHost = "http://up.qiniu.com"
+    apiHost = "http://api.qiniu.com"
+
     ioHost = "http://iovip.qbox.me"
+    upHost = "http://up.qiniu.com"
 }
 
 type Client = {
@@ -91,13 +96,34 @@ type Client = {
 let client (config : Config) =
     { config = config; mac = new Mac(config) }
 
+
 type Error = {
     error : String
 }
 
+type Ret<'a> =
+| Succ of 'a
+| Error of Error
+
+let pickRet (ret : Ret<'a>) =
+    match ret with
+    | Succ data -> data
+    | Error e -> failwith e.error
+
+let ignoreRet (ret : Ret<'a>) = 
+    ret |> pickRet |> ignore
+
+let checkRet (ret : Ret<'a>) =
+    match ret with
+    | Succ _ -> true
+    | Error _ -> false
+
 let accepted (code : HttpStatusCode) = int32 code / 100 = 2
 
-let request (url : String) =
+let internal authorization (c : Client) (req : HttpWebRequest, body : byte[]) =
+    String.Format("QBox {0}", c.mac.SignRequest(req, body))
+
+let inline requestUrl (url : String) =
     let req = WebRequest.Create(url) :?> HttpWebRequest
     req.UserAgent <- userAgent
     req
@@ -114,16 +140,32 @@ let responseCatched (req : HttpWebRequest) =
             return e.Response :?> HttpWebResponse
     }
 
-let responseJson (req : HttpWebRequest) =
+let responseCopy (buf : byte[]) (req : HttpWebRequest) (output : Stream) =
     async {
         use! resp = responseCatched req
-        let ok = accepted resp.StatusCode
-        use stream = resp.GetResponseStream()
-        use reader = new StreamReader(stream)
-        let json = reader.ReadToEnd()
-        return ok, json
+        use input = resp.GetResponseStream()
+        do! asyncCopy buf input output
+        return resp.StatusCode
     }
 
-let parse (wrapSucc : 'a -> 'c) (wrapError : 'b -> 'c) (ok : bool, json : String) =
-    if ok then json |> jsonToObject<'a> |> wrapSucc
-    else json |> jsonToObject<'b> |> wrapError
+let responseStream (buf : byte[]) (req : HttpWebRequest) =
+    async {
+        let data = new MemoryStream()
+        let! code = responseCopy buf req data
+        data.Position <- 0L
+        return code, data
+    }
+
+let responseJson (req : HttpWebRequest) =
+    async {
+        let jsonCapacity = 1 <<< 8 // 256B
+        let buf = Array.zeroCreate jsonCapacity
+        let! code, data = responseStream buf req
+        return code, streamToString data
+    }
+
+let parseJson (wrapSucc : 'a -> Ret<'a>) (code : HttpStatusCode, json : String) =
+    match accepted code with
+    | true -> json |> jsonToObject<'a> |> wrapSucc
+    | false -> json |> jsonToObject<Error> |> Error
+    

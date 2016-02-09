@@ -21,19 +21,17 @@ type FetchSucc = {
     key : String
 }
 
-type CallRet = | CallSucc | CallError of Error
-type StatRet = | StatSucc of StatSucc | StatError of Error
-type FetchRet = | FetchSucc of FetchSucc | FetchError of Error
-
 type Op = 
     | OpStat of Entry
     | OpDelete of Entry
     | OpCopy of src : Entry * dst : Entry
     | OpMove of src : Entry * dst : Entry
 
-type OpRet = | OpSucc | OpStatSucc of StatSucc | OpError of Error
+type OpSucc = 
+| CallSucc of Unit
+| StatSucc of StatSucc
 
-type OpItemRet = {
+type OpItemSucc = {
     code : HttpStatusCode
     data : String
 }
@@ -52,61 +50,40 @@ let private encodeOps (ops : Op seq) =
     |> String.concat "&"
     |> stringToUtf8
 
-let internal authorization (c : Client) (req : HttpWebRequest, body : byte[]) =
-    String.Format("QBox {0}", c.mac.SignRequest(req, body))
-
 let internal requestOp (c : Client) (url : String) =
-    let req = request url
+    let req = requestUrl url
     req.Method <- "GET"
     req.ContentType <- "application/x-www-form-urlencoded"
-    req.Headers.Add("Authorization", authorization c (req, null))
+    req.Headers.Add(HttpRequestHeader.Authorization, authorization c (req, null))
     req
 
 let private requestBatch (c : Client) (body : byte[]) =
-    let url = String.Format("{0}/batch", c.config.rsHost)
-    let req = request url
-    req.Method <- "POST"
-    req.ContentType <- "application/x-www-form-urlencoded"
-    req.Headers.Add("Authorization", authorization c (req, body))
-    req
+    async {
+        let url = String.Format("{0}/batch", c.config.rsHost)
+        let req = requestUrl url
+        req.Method <- "POST"
+        req.ContentType <- "application/x-www-form-urlencoded"
+        req.Headers.Add(HttpRequestHeader.Authorization, authorization c (req, body))
+        let! output = requestStream req
+        do! output.AsyncWrite(body, 0, body.Length)
+        return req
+    }
 
-let private parseCallRet = parse (fun _ -> CallSucc) CallError
-let private parseStatRet = parse StatSucc StatError
-let private parseFetchRet = parse FetchSucc FetchError
+let private parseCallRet = parseJson (fun _ -> Succ())
 
-let private parseOpRet (op : Op, item : OpItemRet) =
+let private parseOpRet (op : Op, item : OpItemSucc) =
     match op, item.code |> accepted with
-    | _, false -> item.data |> jsonToObject<Error> |> OpError
-    | OpStat _, _ -> item.data |> jsonToObject<StatSucc> |> OpStatSucc
-    | _ -> OpSucc
+    | _, false -> item.data |> jsonToObject<Error> |> Error
+    | OpStat _, _ -> item.data |> jsonToObject<StatSucc> |> StatSucc |> Succ
+    | _ -> CallSucc () |> Succ
 
 let private rsHostGet (c : Client) (op : Op) =
     String.Concat(c.config.rsHost, op |> opToUri)
     |> requestOp c
     |> responseJson
 
-let checkCallRet (ret : CallRet) =
-    match ret with
-    | CallSucc -> ()
-    | CallError e -> failwith e.error
-
-let checkStatRet (ret : StatRet) =
-    match ret with
-    | StatSucc _ -> ()
-    | StatError e -> failwith e.error
-
-let checkFetchRet (ret : FetchRet) =
-    match ret with
-    | FetchSucc _ -> ()
-    | FetchError e -> failwith e.error
-
-let checkOpRet (ret : OpRet) =
-    match ret with
-    | OpSucc | OpStatSucc _ -> ()
-    | OpError e -> failwith e.error
-
 let stat (c : Client) (en : Entry) =
-    rsHostGet c (OpStat en) |>> parseStatRet
+    rsHostGet c (OpStat en) |>> parseJson Ret<StatSucc>.Succ
 
 let delete (c : Client) (en : Entry) = 
     rsHostGet c (OpDelete en) |>> parseCallRet
@@ -120,7 +97,7 @@ let move (c : Client) (src : Entry) (dst : Entry) =
 let fetch (c : Client) (url : String) (dst : Entry) =
     String.Format("{0}/{1}/{2}/{3}/{4}", c.config.ioHost, "fetch", 
         Base64Safe.fromString url, "to", dst.Encoded) 
-    |> requestOp c |> responseJson |>> parseFetchRet
+    |> requestOp c |> responseJson |>> parseJson Ret<FetchSucc>.Succ
 
 let changeMime (c : Client) (mime : String) (en : Entry)  =
     String.Format("{0}/{1}/{2}/{3}/{4}", c.config.rsHost, "chgm",
@@ -128,19 +105,16 @@ let changeMime (c : Client) (mime : String) (en : Entry)  =
     |> requestOp c |> responseJson |>> parseCallRet
 
 let batch (c : Client) (ops : Op[]) =
-    let parse (ret : bool * String) =
-        match ret with
-        | true, json -> 
+    let parse (code : HttpStatusCode, json : String) =
+        match accepted code, json with
+        | true, _ -> 
             json 
-            |> jsonToObject<OpItemRet[]>
+            |> jsonToObject<OpItemSucc[]>
             |> Array.zip ops
             |> Array.map parseOpRet
-        | _, _ -> Array.empty
+        | false, _ -> Array.empty
     async {
         let body = encodeOps ops
-        let req = requestBatch c body
-        use! output = requestStream req
-        do! output.AsyncWrite(body, 0, body.Length)
-        return! req |> responseJson |>> parse
+        return! requestBatch c body |!> responseJson |>> parse
     }
     

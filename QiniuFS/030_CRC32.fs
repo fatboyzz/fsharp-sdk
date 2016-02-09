@@ -27,5 +27,5 @@ let hash (table : UInt32[]) (crc : UInt32) (input : Stream) =
 let IEEEPoly = 0xedb88320u;
 let IEEETable = mktable IEEEPoly
 
-let hashIEEE (crc : UInt32) (input : Stream) =
+let inline hashIEEE (crc : UInt32) (input : Stream) =
      hash IEEETable crc input

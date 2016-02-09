@@ -8,28 +8,19 @@ open System.Threading
 open System.Collections.Generic
 open Newtonsoft.Json
 
-type Slice<'a> = {
-    buf : 'a[]
-    offset : Int32
-    count : Int32
-}
+let inline unref (r : 'a ref) = !r
 
-let arrayToSlice (e : 'a[]) =
-    { buf = e; offset = 0; count = e.Length }
-
-let unref (r : 'a ref) = !r
-
-let stringToUtf8 (s : String) =
+let inline stringToUtf8 (s : String) =
     Encoding.UTF8.GetBytes(s)
 
-let utf8ToString (bs : byte[]) =
+let inline utf8ToString (bs : byte[]) =
     Encoding.UTF8.GetString(bs)
 
-let streamToString (stream : Stream) =
-    let reader = new StreamReader(stream, Encoding.UTF8)
+let inline streamToString (stream : Stream) =
+    let reader = new StreamReader(stream)
     reader.ReadToEnd()
 
-let stringToStream (s : String) =
+let inline stringToStream (s : String) =
     new MemoryStream(stringToUtf8 s)
 
 let jsonSettings =
@@ -37,56 +28,72 @@ let jsonSettings =
         NullValueHandling = NullValueHandling.Ignore
     )
 
-let jsonToObject<'a>(s : String) : 'a =
+let inline jsonToObject<'a>(s : String) : 'a =
     JsonConvert.DeserializeObject<'a>(s, jsonSettings)
 
-let objectToJson<'a>(o : 'a) =
+let inline objectToJson<'a>(o : 'a) =
     JsonConvert.SerializeObject(o, jsonSettings)
 
-let objectToJsonIndented<'a>(o : 'a) =
+let inline objectToJsonIndented<'a>(o : 'a) =
     JsonConvert.SerializeObject(o, Formatting.Indented, jsonSettings)
 
 let readJsons<'a>(input : Stream) =
     seq {
-        let r = new StreamReader(input, Encoding.UTF8)
+        let r = new StreamReader(input)
         let jr = new JsonTextReader(r)
         jr.SupportMultipleContent <- true
         let js = JsonSerializer.Create(jsonSettings)
-        while jr.Read() do
-            yield js.Deserialize<'a>(jr)
+        while jr.Read() do yield js.Deserialize<'a>(jr)
     }
 
 let writeJson (output : Stream) (o : 'a) =
-    let w = new StreamWriter(output, Encoding.UTF8)
+    let w = new StreamWriter(output)
     let jw = new JsonTextWriter(w)
     let js = JsonSerializer.Create(jsonSettings)
     js.Serialize(jw, o)
     jw.Flush()
 
 let writeJsons (output : Stream) (os : 'a seq) = 
-    let w = new StreamWriter(output, Encoding.UTF8)
+    let w = new StreamWriter(output)
     let jw = new JsonTextWriter(w)
     let js = JsonSerializer.Create(jsonSettings)
-    for o in os do
-        js.Serialize(jw, o)
+    for o in os do js.Serialize(jw, o)
     jw.Flush()
 
-let concat (ss : String[]) = 
-    String.Concat(ss)
+let interpolate (sep : 'a) (ss : seq<'a>) =
+    seq {
+        let iter = ss.GetEnumerator()
+        if iter.MoveNext() then
+            yield iter.Current
+            while iter.MoveNext() do
+                yield sep
+                yield iter.Current
+    }
 
-let join (sep : String) (ss : String[]) =
-    String.Join(sep, ss)
+let inline consSeq (car : 'a) (cdr : seq<'a>) =
+    seq { yield car; yield! cdr }
 
-let concatBytes (bss : byte[][]) =
-    let c = bss |> Array.map Array.length |> Array.sum
-    let s = new MemoryStream(c)
-    for bs in bss do
-        s.Write(bs, 0, bs.Length)
-    s.ToArray()
+let concat (ss : seq<String>) = 
+    let c = Seq.sumBy String.length ss
+    let sb = new StringBuilder(c)
+    for s in ss do sb.Append(s) |> ignore
+    sb.ToString()
+
+let concatUtf8 (ss : seq<String>) =
+    let output = new MemoryStream()
+    let writer = new StreamWriter(output)
+    using writer (fun w -> for s in ss do writer.Write(s))
+    output.ToArray()
+
+let concatBytes (bss : seq<byte[]>) =
+    let c = Seq.sumBy Array.length bss
+    let output = new MemoryStream(c)
+    using output (fun o -> for bs in bss do o.Write(bs, 0, bs.Length))
+    output.ToArray()
 
 let crlf = "\r\n"
-
-let nullOrEmpty = String.IsNullOrEmpty
+let inline nullOrEmpty (s : String) = String.IsNullOrEmpty s
+let inline notNullOrEmpty (s : String) = s |> nullOrEmpty |> not
 
 let readerAt (input : Stream) =
     let inputLock = new Object()
@@ -95,7 +102,7 @@ let readerAt (input : Stream) =
         lock inputLock (fun _ ->
             input.Position <- offset
             let count = input.Read(buf, 0, length)
-            { buf = buf; offset = 0; count = count }
+            new MemoryStream(buf, 0, count)
         )
 
 let writerAt (output : Stream) =
@@ -106,17 +113,17 @@ let writerAt (output : Stream) =
             output.Write(data, 0, data.Length)
         )
 
-let (|>>) (computaion : Async<'a>) (con : 'a -> 'b) =
+let inline (|>>) (computaion : Async<'a>) (con : 'a -> 'b) =
     async.Bind(computaion, con >> async.Return)
 
-let (|!>) (computaion : Async<'a>) (con : 'a -> Async<'b>) =
+let inline (|!>) (computaion : Async<'a>) (con : 'a -> Async<'b>) =
     async.Bind(computaion, con >> async.ReturnFrom)
 
 let asyncCopy (buf : byte[]) (src : Stream) (dst : Stream) =
-    let length = buf.Length
+    let l = buf.Length
     let rec loop _ =
         async {
-            let! n = src.AsyncRead(buf, 0, length)
+            let! n = src.AsyncRead(buf, 0, l)
             if n > 0 then 
                 do! dst.AsyncWrite(buf, 0, n)
                 return! loop()

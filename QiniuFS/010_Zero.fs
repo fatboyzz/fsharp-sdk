@@ -5,11 +5,11 @@ open System
 type FSharpType = Microsoft.FSharp.Reflection.FSharpType
 type FSharpValue = Microsoft.FSharp.Reflection.FSharpValue
 
-let isClass (t : Type) = t.IsClass
-let isValue (t : Type) = t.IsValueType
-let isRecord = FSharpType.IsRecord
-let isTuple = FSharpType.IsTuple
-let isArray (t : Type) = t.IsArray
+let inline isClass (t : Type) = t.IsClass
+let inline isValue (t : Type) = t.IsValueType
+let inline isRecord (t : Type) = FSharpType.IsRecord t
+let inline isTuple (t : Type) = FSharpType.IsTuple t
+let inline isArray (t : Type) = t.IsArray
 
 let rec private zeroInstance (t : Type) =
     match t with

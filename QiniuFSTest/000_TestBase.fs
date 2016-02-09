@@ -57,20 +57,11 @@ let bigPath = Path.Combine(testPath, bigName)
 do genNotExist bigPath (1 <<< 23) // 8M
 let bigQETag = using (File.OpenRead bigPath) QETag.hash
 
-let check(o : Object) =
-    match o with
-    | :? RS.CallRet as ret -> RS.checkCallRet ret
-    | :? RS.StatRet as ret -> RS.checkStatRet ret
-    | :? RS.FetchRet as ret -> RS.checkFetchRet ret
-    | :? RS.OpRet as ret -> RS.checkOpRet ret
-    | :? IO.PutRet as ret -> IO.checkPutRet ret
-    | :? D.DownRet as ret -> D.checkDownRet ret
-    | _ -> failwith "unknown ret type"
-        
-let synchro = Async.RunSynchronously
+let gogopherDomain = "developer.qiniu.com"
+let gogopherKey = "resource/gogopher.jpg"
     
-let checkSynchro (ret : Async<'a>) =
-    ret |>> box |>> check |> synchro
+let ignoreRetSynchro (ret : Async<Ret<'a>>) =
+    ret |>> ignoreRet |> Async.RunSynchronously
 
 let uptoken (key : String) =
     let policy = { 

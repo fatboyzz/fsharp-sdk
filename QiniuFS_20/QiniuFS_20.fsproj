@@ -70,23 +70,29 @@
     <Compile Include="..\QiniuFS\050_Client.fs">
       <Link>050_Client.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\060_IO.fs">
-      <Link>060_IO.fs</Link>
+    <Compile Include="..\QiniuFS\055_FOP.fs">
+      <Link>055_FOP.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\070_RIO.fs">
-      <Link>070_RIO.fs</Link>
+    <Compile Include="..\QiniuFS\058_PFOP.fs">
+      <Link>058_PFOP.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\080_D.fs">
-      <Link>080_D.fs</Link>
+    <Compile Include="..\QiniuFS\080_IO.fs">
+      <Link>080_IO.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\090_RD.fs">
-      <Link>090_RD.fs</Link>
+    <Compile Include="..\QiniuFS\090_RIO.fs">
+      <Link>090_RIO.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\100_RS.fs">
-      <Link>100_RS.fs</Link>
+    <Compile Include="..\QiniuFS\100_D.fs">
+      <Link>100_D.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\110_RSF.fs">
-      <Link>110_RSF.fs</Link>
+    <Compile Include="..\QiniuFS\110_RD.fs">
+      <Link>110_RD.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFS\120_RS.fs">
+      <Link>120_RS.fs</Link>
+    </Compile>
+    <Compile Include="..\QiniuFS\130_RSF.fs">
+      <Link>130_RSF.fs</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup>

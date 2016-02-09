@@ -55,6 +55,7 @@
     <Compile Include="020_RSTest.fs" />
     <Compile Include="030_RSFTest.fs" />
     <Compile Include="040_DTest.fs" />
+    <Compile Include="050_FOPTest.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

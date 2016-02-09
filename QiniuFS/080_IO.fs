@@ -6,6 +6,7 @@ open System.Net
 open System.Collections.Generic
 open Util
 open Client
+open FOP
 
 type PutPolicy = {
     scope : String
@@ -54,10 +55,6 @@ type PutSucc = {
     key : String
 }
 
-type PutRet = 
-| PutSucc of PutSucc 
-| PutError of Error
-
 type Part =
     | KVPart of key : String * value : String
     | StreamPart of mime : String * input : Stream
@@ -77,16 +74,9 @@ let defaultDeadline _ = deadline defaultExpire
 let putPolicy = Zero.instance<PutPolicy>
 let putExtra = { Zero.instance<PutExtra> with crc32 = -1 }
 
-let parsePutRet = parse PutSucc PutError
-
-let checkPutRet (ret : PutRet) =
-    match ret with
-    | PutSucc _ -> ()
-    | PutError e -> failwith e.error
-
 let private writePart (boundary : String) (output : Stream) (part : Part) =
     let wso = stringToUtf8 >> output.AsyncWrite
-    let wsso = concat >> wso
+    let wsso = concatUtf8 >> output.AsyncWrite
 
     let dispositionLine (name : String) =
         [| 
@@ -162,9 +152,9 @@ let private doput (param : PutParam) (input : Stream) =
                 yield! crcPart param.extra input
                 yield StreamPart(extra.mimeType, input)
             }
-        let req = request param.c.config.upHost
+        let req = requestUrl param.c.config.upHost
         do! parts |> writeParts req
-        return! req |> responseJson |>> parsePutRet
+        return! req |> responseJson |>> parseJson Ret<PutSucc>.Succ
     }
 
 let put (c : Client) (token : String) (key : String) (input : Stream) (extra : PutExtra) =
@@ -176,11 +166,25 @@ let putFile (c : Client) (token : String) (key : String) (path : String) (extra 
         return! put c token key input extra
     }
 
-
 let publicUrl (domain : String) (key : String) =
     String.Format("http://{0}/{1}", domain, Uri.EscapeUriString key)
 
-let privateUrl (c : Client) (domain : String) (key : String) (deadline : Int32) =
-    let url = String.Format("{0}?e={1}", publicUrl domain key, deadline)
+let publicUrlFop (domain : String) (key : String) (fop : Fop) =
+    seq {
+        yield publicUrl domain key
+        yield "?"
+        yield! (fopToUri fop)
+    } |> concat
+
+let attachToken (c : Client) (url : String) =
     let token = url |> stringToUtf8 |> c.mac.Sign
     String.Format("{0}&token={1}", url, token)
+
+let privateUrl (c : Client) (domain : String) (key : String) (deadline : Int32) =
+    String.Format("{0}?e={1}", publicUrl domain key, deadline) 
+    |> attachToken c
+
+let privateUrlFop (c : Client) (domain : String) (key : String) (fop : Fop) (deadline : Int32) =
+    String.Format("{0}&e={1}", publicUrlFop domain key fop, deadline) 
+    |> attachToken c
+    

@@ -36,13 +36,15 @@ type RPutExtra = {
 }
 
 let rputExtra = {
-    Zero.instance<RPutExtra> with
-        blockSize = 1 <<< 22 // 4M
-        chunkSize = 1 <<< 20 // 1M
-        bufSize = 1 <<< 15 // 32K
-        tryTimes = 3
-        worker = 4
-        notify = ignore
+    customs = Array.empty
+    mimeType = ""
+    blockSize = 1 <<< 22 // 4M
+    chunkSize = 1 <<< 20 // 1M
+    bufSize = 1 <<< 15 // 32K
+    tryTimes = 3
+    worker = 4
+    progresses = Array.empty
+    notify = ignore
 }
 
 type private RPutParam = {
@@ -52,18 +54,15 @@ type private RPutParam = {
     extra : RPutExtra
 }
 
-type private ChunkRet = 
-| ChunkInit 
-| ChunkSucc of ChunkSucc 
-| ChunkError of Error
-
 type private BlockCtx = {
     blockId : Int32
     blockSize : Int32
-    prev : ChunkRet
-    readAt : Int64 -> Int32 -> Slice<byte>
+    prev : ChunkSucc
+    readAt : Int64 -> Int32 -> MemoryStream
     notify : Progress -> unit
 }
+
+let chunkSucc = Zero.instance<ChunkSucc>
 
 let cleanProgresses (ps : Progress[]) =
     let rec loop (acc : Progress list) (rps : Progress list) =
@@ -74,9 +73,7 @@ let cleanProgresses (ps : Progress[]) =
             | Some p -> loop acc tail
             | None -> loop (head :: acc) tail
     loop [] (ps |> Array.rev |> Array.toList)
-
-let private parseChunkRet = parse ChunkSucc ChunkError
-
+    
 let private block (param : RPutParam) (ctx : BlockCtx) =
     let extra = param.extra
     let blockStart = int64 extra.blockSize * int64 ctx.blockId 
@@ -84,7 +81,7 @@ let private block (param : RPutParam) (ctx : BlockCtx) =
 
     let put (url : String) (offset : Int32) =
         async {
-            let req = request url
+            let req = requestUrl url
             req.Method <- "POST"
             req.ContentType <- "application/octet-stream"
             req.Headers.Add(HttpRequestHeader.Authorization, "UpToken " + param.token)
@@ -92,41 +89,40 @@ let private block (param : RPutParam) (ctx : BlockCtx) =
             let length = min extra.chunkSize (ctx.blockSize - offset)
             req.ContentLength <- int64 length
 
-            let s = ctx.readAt start length
-            let input = new MemoryStream(s.buf, s.offset, s.count)
+            let input = ctx.readAt start length
             let crc32 = CRC32.hashIEEE 0u input
             input.Position <- 0L
 
             use! output = requestStream req
             do! asyncCopy (buf.Force()) input output
-            let! ret = req |> responseJson |>> parseChunkRet
+            let! ret = req |> responseJson |>> parseJson Ret<ChunkSucc>.Succ
             match ret with
-            | ChunkSucc succ when succ.crc32 = crc32 -> 
+            | Succ succ when succ.crc32 = crc32 -> 
                 ctx.notify { blockId = ctx.blockId; blockSize = ctx.blockSize; ret = succ }; 
                 return ret
-            | ChunkSucc succ ->
-                return ChunkError({ error = "Invalid chunk crc32" })
+            | Succ succ ->
+                return Error({ error = "Invalid chunk crc32" })
             | _ -> return ret
         }
 
-    let rec loop (times : Int32) (prev : ChunkRet) =
+    let rec loop (times : Int32) (prev : ChunkSucc) (cur : Ret<ChunkSucc>) =
         async {
-            match (times >= extra.tryTimes), prev with
-            | _, ChunkInit -> 
+            match (times >= extra.tryTimes), cur with
+            | _, Succ c when c.offset = 0 -> 
                 let url = String.Format("{0}/mkblk/{1}", param.c.config.upHost, ctx.blockSize)
-                return! put url 0 |!> loop 0
-            | _, ChunkSucc succ when succ.offset = ctx.blockSize  -> 
-                return prev 
-            | _, ChunkSucc succ -> 
-                let url = String.Format("{0}/bput/{1}/{2}", succ.host, succ.ctx, succ.offset)
-                return! put url succ.offset |!> loop 0
-            | false, ChunkError _ -> 
-                return! loop (times + 1) prev
+                return! put url 0 |!> loop times c
+            | _, Succ c when c.offset = ctx.blockSize -> 
+                return cur 
+            | _, Succ c -> 
+                let url = String.Format("{0}/bput/{1}/{2}", c.host, c.ctx, c.offset)
+                return! put url c.offset |!> loop times c
+            | false, Error _ -> 
+                return! loop (times + 1) prev (Succ prev)
             | true, _ -> 
-                return prev 
+                return cur
         }
 
-    loop 0 ctx.prev
+    loop 0 ctx.prev (Succ ctx.prev)
 
 let private mkfile (param : RPutParam) (total : Int64) (ctxs : String seq) =
     async {
@@ -141,7 +137,7 @@ let private mkfile (param : RPutParam) (total : Int64) (ctxs : String seq) =
                 (if nullOrEmpty mime then "" else "/mimeType/" + Base64Safe.fromString mime)
                 param.extra.customs |> Array.map customUri |> String.Concat
             |] |> concat
-        let req = request url
+        let req = requestUrl url
         req.Method <- "POST"
         req.ContentType <- "text/plain"
         req.Headers.Add(HttpRequestHeader.Authorization, "UpToken " + param.token)
@@ -149,7 +145,7 @@ let private mkfile (param : RPutParam) (total : Int64) (ctxs : String seq) =
         let body = ctxs |> String.concat "," |> stringToUtf8
         output.Write(body, 0, body.Length)
         return req
-    } |!> responseJson |>> parsePutRet
+    } |!> responseJson |>> parseJson Ret<PutSucc>.Succ
 
 let private doRput (param : RPutParam) (input : Stream) =
     let extra = param.extra
@@ -168,19 +164,19 @@ let private doRput (param : RPutParam) (input : Stream) =
     
     let work (blockId : Int32) =
         async {
-            let blockCtx (prev : ChunkRet) = { 
-                blockId = blockId; blockSize = blockSizeOfId blockId; prev = prev; 
-                readAt = readAt; notify = notify 
+            let blockCtx (prev : ChunkSucc) = { 
+                blockId = blockId; blockSize = blockSizeOfId blockId;
+                prev = prev; readAt = readAt; notify = notify 
             }
             let progress = progresses |> Array.tryFind (fun p -> p.blockId = blockId) 
             match progress with
-            | Some p -> return! blockCtx (ChunkSucc p.ret) |> block param
-            | None -> return! blockCtx ChunkInit |> block param
+            | Some p -> return! blockCtx p.ret |> block param
+            | None -> return! blockCtx chunkSucc |> block param
         }
 
-    let pickctx (r : ChunkRet) =
+    let pickctx (r : Ret<ChunkSucc>) =
         match r with
-        | ChunkSucc succ -> succ.ctx
+        | Succ succ -> succ.ctx
         | _ -> ""
 
     async {
@@ -188,9 +184,9 @@ let private doRput (param : RPutParam) (input : Stream) =
                     |> Array.map work
                     |> limitedParallel extra.worker
         let ctxs = Array.map pickctx rets
-        if Array.forall (nullOrEmpty >> not) ctxs then
+        if Array.forall notNullOrEmpty ctxs then
             return! mkfile param input.Length ctxs
-        else return PutError({ error = "Block not all done" })
+        else return Error { error = "Block not all done" }
     }
 
 let rput (c : Client) (token : String) (key : String) (input : Stream) (extra : RPutExtra) =
