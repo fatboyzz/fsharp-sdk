@@ -95,7 +95,7 @@ let private block (param : RPutParam) (ctx : BlockCtx) =
 
             use! output = requestStream req
             do! asyncCopy (buf.Force()) input output
-            let! ret = req |> responseJson |>> parseJson Ret<ChunkSucc>.Succ
+            let! ret = req |> responseJson<ChunkSucc>
             match ret with
             | Succ succ when succ.crc32 = crc32 -> 
                 ctx.notify { blockId = ctx.blockId; blockSize = ctx.blockSize; ret = succ }; 
@@ -145,7 +145,7 @@ let private mkfile (param : RPutParam) (total : Int64) (ctxs : String seq) =
         let body = ctxs |> String.concat "," |> stringToUtf8
         output.Write(body, 0, body.Length)
         return req
-    } |!> responseJson |>> parseJson Ret<PutSucc>.Succ
+    } |!> responseJson<PutSucc>
 
 let private doRput (param : RPutParam) (input : Stream) =
     let extra = param.extra

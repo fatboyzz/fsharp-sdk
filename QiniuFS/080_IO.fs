@@ -154,7 +154,7 @@ let private doput (param : PutParam) (input : Stream) =
             }
         let req = requestUrl param.c.config.upHost
         do! parts |> writeParts req
-        return! req |> responseJson |>> parseJson Ret<PutSucc>.Succ
+        return! req |> responseJson<PutSucc>
     }
 
 let put (c : Client) (token : String) (key : String) (input : Stream) (extra : PutExtra) =

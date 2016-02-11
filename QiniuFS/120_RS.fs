@@ -31,7 +31,7 @@ type OpSucc =
 | CallSucc of Unit
 | StatSucc of StatSucc
 
-type OpItemSucc = {
+type OpItem = {
     code : HttpStatusCode
     data : String
 }
@@ -69,52 +69,52 @@ let private requestBatch (c : Client) (body : byte[]) =
         return req
     }
 
-let private parseCallRet = parseJson (fun _ -> Succ())
-
-let private parseOpRet (op : Op, item : OpItemSucc) =
-    match op, item.code |> accepted with
-    | _, false -> item.data |> jsonToObject<Error> |> Error
-    | OpStat _, _ -> item.data |> jsonToObject<StatSucc> |> StatSucc |> Succ
-    | _ -> CallSucc () |> Succ
-
-let private rsHostGet (c : Client) (op : Op) =
+let private rsHostGet<'succ> (c : Client) (op : Op) =
     String.Concat(c.config.rsHost, op |> opToUri)
     |> requestOp c
-    |> responseJson
+    |> responseJson<'succ>
 
 let stat (c : Client) (en : Entry) =
-    rsHostGet c (OpStat en) |>> parseJson Ret<StatSucc>.Succ
+    rsHostGet<StatSucc> c (OpStat en)
 
 let delete (c : Client) (en : Entry) = 
-    rsHostGet c (OpDelete en) |>> parseCallRet
+    rsHostGet<Unit> c (OpDelete en)
 
 let copy (c : Client) (src : Entry) (dst : Entry) =
-    rsHostGet c (OpCopy (src, dst)) |>> parseCallRet
+    rsHostGet<Unit> c (OpCopy (src, dst))
 
 let move (c : Client) (src : Entry) (dst : Entry) =
-    rsHostGet c (OpMove (src, dst)) |>> parseCallRet
+    rsHostGet<Unit> c (OpMove (src, dst))
 
 let fetch (c : Client) (url : String) (dst : Entry) =
     String.Format("{0}/{1}/{2}/{3}/{4}", c.config.ioHost, "fetch", 
         Base64Safe.fromString url, "to", dst.Encoded) 
-    |> requestOp c |> responseJson |>> parseJson Ret<FetchSucc>.Succ
+    |> requestOp c |> responseJson<FetchSucc>
 
 let changeMime (c : Client) (mime : String) (en : Entry)  =
     String.Format("{0}/{1}/{2}/{3}/{4}", c.config.rsHost, "chgm",
         en.Encoded, "mime", Base64Safe.fromString mime) 
-    |> requestOp c |> responseJson |>> parseCallRet
+    |> requestOp c |> responseJson<Unit>
+
+let private parseOpRet (op : Op, item : OpItem) =
+    match op, accepted item.code with
+    | _, false -> item.data |> jsonToObject<Error> |> Error
+    | OpStat _, true -> item.data |> jsonToObject<StatSucc> |> StatSucc |> Succ
+    | _ -> CallSucc () |> Succ
 
 let batch (c : Client) (ops : Op[]) =
-    let parse (code : HttpStatusCode, json : String) =
-        match accepted code, json with
-        | true, _ -> 
-            json 
-            |> jsonToObject<OpItemSucc[]>
-            |> Array.zip ops
-            |> Array.map parseOpRet
-        | false, _ -> Array.empty
+    let parse (data : Stream) =
+        streamToString data
+        |> jsonToObject<OpItem[]>
+        |> Array.zip ops
+        |> Array.map parseOpRet
     async {
-        let body = encodeOps ops
-        return! requestBatch c body |!> responseJson |>> parse
+        let buf = Array.zeroCreate (1 <<< 8) // 256B
+        let data = new MemoryStream()
+        let! req = requestBatch c (encodeOps ops)
+        let! code = responseCopy buf req data
+        data.Position <- 0L
+        match accepted code with
+        | true -> return parse data
+        | false -> return Array.empty
     }
-    

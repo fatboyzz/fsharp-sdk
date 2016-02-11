@@ -5,7 +5,7 @@ open NUnit.Framework
 open QiniuFS
 open QiniuFS.Util
 open QiniuFS.Client
-open TestBase
+open Base
 
 [<TestFixture>]
 type RSFTest() =
@@ -38,15 +38,8 @@ type RSFTest() =
     [<Test>]
     member this.ListTest() =
         let rec loop marker acc =
-            async {
-                let! ret = RSF.list c tc.BUCKET listLimit "" "" marker
-                match ret with
-                | Succ succ ->
-                    if nullOrEmpty succ.marker 
-                    then return acc + succ.items.Length
-                    else return! loop succ.marker (acc + succ.items.Length)
-                | Error e -> 
-                    return failwith e.error
-            }
-        let acc = loop "" 0 |> Async.RunSynchronously
-        Assert.AreEqual(listLength, acc)
+            let ret = RSF.list c tc.BUCKET listLimit "" "" marker |> pickRetSynchro
+            if nullOrEmpty ret.marker 
+            then acc + ret.items.Length
+            else loop ret.marker (acc + ret.items.Length) 
+        Assert.AreEqual(listLength, loop "" 0)

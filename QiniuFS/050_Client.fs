@@ -105,6 +105,11 @@ type Ret<'a> =
 | Succ of 'a
 | Error of Error
 
+let mapRet (f : 'a -> 'b) (ret : Ret<'a>) =
+    match ret with
+    | Succ data -> Succ (f data)
+    | Error e -> Error e
+
 let pickRet (ret : Ret<'a>) =
     match ret with
     | Succ data -> data
@@ -153,19 +158,16 @@ let responseStream (buf : byte[]) (req : HttpWebRequest) =
         let data = new MemoryStream()
         let! code = responseCopy buf req data
         data.Position <- 0L
-        return code, data
+        match accepted code with
+        | true -> return Succ data
+        | false -> return streamToString data |> jsonToObject<Error> |> Error
     }
 
-let responseJson (req : HttpWebRequest) =
+let responseJson<'succ> (req : HttpWebRequest) =
     async {
         let jsonCapacity = 1 <<< 8 // 256B
         let buf = Array.zeroCreate jsonCapacity
-        let! code, data = responseStream buf req
-        return code, streamToString data
+        let! ret = responseStream buf req
+        return mapRet (streamToString >> jsonToObject<'succ>) ret 
     }
-
-let parseJson (wrapSucc : 'a -> Ret<'a>) (code : HttpStatusCode, json : String) =
-    match accepted code with
-    | true -> json |> jsonToObject<'a> |> wrapSucc
-    | false -> json |> jsonToObject<Error> |> Error
     

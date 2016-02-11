@@ -63,8 +63,8 @@
     <Compile Include="030_CRC32.fs" />
     <Compile Include="040_QETag.fs" />
     <Compile Include="050_Client.fs" />
-    <Compile Include="055_FOP.fs" />
-    <Compile Include="058_PFOP.fs" />
+    <Compile Include="060_FOP.fs" />
+    <Compile Include="070_PFOP.fs" />
     <Compile Include="080_IO.fs" />
     <Compile Include="090_RIO.fs" />
     <Compile Include="100_D.fs" />

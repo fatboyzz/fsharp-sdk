@@ -30,5 +30,5 @@ let list (c : Client) (bucket : String) (limit : Int32) (prefix : String) (delim
             if nullOrEmpty marker |> not then yield String.Format("marker={0}", marker)
         } |> interpolate "&" |> concat
     let url = String.Format("{0}/list?{1}", c.config.rsfHost, query)
-    url |> requestOp c |> responseJson |>> parseJson Ret<ListSucc>.Succ
+    url |> requestOp c |> responseJson<ListSucc>
    

@@ -9,94 +9,81 @@ open NUnit.Framework
 open QiniuFS
 open QiniuFS.Util
 open QiniuFS.Client
-open TestBase
+open Base
 
 [<TestFixture>]
 type IOTest() =
 
     member private this.PutWithExtraAsync (extra : IO.PutExtra) =
-        async {
-            let key = String.Format("{0}_{1}", ticks(), smallName)
-            let en = entry tc.BUCKET key
-            let token = uptoken key
-            let! ret = IO.putFile c token key smallPath extra 
-            match ret with
-            | Succ succ -> 
-                do! RS.delete c en |>> ignoreRet
-                Assert.AreEqual(smallQETag, succ.hash)
-            | Error e -> failwith e.error
-        } 
+        let key = String.Format("{0}_{1}", ticks(), smallName)
+        let en = entry tc.BUCKET key
+        let token = uptoken key
+        let ret = IO.putFile c token key smallPath extra |> pickRetSynchro
+        RS.delete c en |> ignoreRetSynchro
+        Assert.AreEqual(smallQETag, ret.hash)
 
     [<Test>]
     member this.PutTest() =
         this.PutWithExtraAsync IO.putExtra 
-        |> Async.RunSynchronously
 
     [<Test>]
     member this.PutCrcTest() =
         this.PutWithExtraAsync { IO.putExtra with checkCrc = IO.CheckCrc.Auto }
-        |> Async.RunSynchronously
 
     [<Test>]
     member this.RPutTest() =
-        async {
-            let key = String.Format("{0}_{1}", ticks(), bigName)
-            let en = entry tc.BUCKET key
-            let token = uptoken key
-            let! ret = RIO.rputFile c token key bigPath RIO.rputExtra
-            match ret with
-            | Succ succ -> 
-                do! RS.delete c en |>> ignoreRet
-                Assert.AreEqual(bigQETag, succ.hash)
-            | Error e -> failwith e.error
-        } |> Async.RunSynchronously
+        let key = String.Format("{0}_{1}", ticks(), bigName)
+        let en = entry tc.BUCKET key
+        let token = uptoken key
+        let ret = RIO.rputFile c token key bigPath RIO.rputExtra |> pickRetSynchro
+        RS.delete c en |> ignoreRetSynchro
+        Assert.AreEqual(bigQETag, ret.hash)
+
+
+    member this.RPutProgresses(progressesPath : String) =
+        if File.Exists progressesPath then
+            use data = File.OpenRead(progressesPath)
+            readJsons<RIO.Progress> data 
+            |> Seq.toArray 
+            |> RIO.cleanProgresses
+        else Array.zeroCreate<RIO.Progress> 0
+
+    member this.RPutExtra(progresses : RIO.Progress[], notify : RIO.Progress -> unit) = 
+        { RIO.rputExtra with
+            RIO.progresses = progresses
+            RIO.notify = notify }
+
+    member this.RPutCancel(cancelCount : Int32, progressesPath : String, key : String) =
+        let progresses = this.RPutProgresses progressesPath
+        use progressStream = File.Create(progressesPath)
+        writeJsons progressStream progresses
+
+        let cs = new CancellationTokenSource()
+        let notifyCount = ref -1
+        let notify (p : RIO.Progress) =  
+            incr notifyCount
+            writeJson progressStream p
+            if unref notifyCount >= cancelCount then
+                cs.Cancel()
+            
+        let extra = this.RPutExtra(progresses, notify)
+        let work = RIO.rputFile c (uptoken key) key bigPath extra 
+        try Async.RunSynchronously(work, -1, cs.Token)
+        with | :? OperationCanceledException -> 
+            Error { error = "Upload not done yet and just try again" }
 
     [<Test>]
-    member this.ResumebleRPutTest() =
+    member this.RPutProgressTest() =
         let progressesData = "rputProgresses.dat"
         let progressesPath = Path.Combine(testPath, progressesData)
         if File.Exists(progressesPath) then File.Delete(progressesPath)
 
         let key = String.Format("{0}_{1}", ticks(), bigName)
         let en = entry tc.BUCKET key
-        let token = uptoken key
-        let notifyCancelCount = 10
-
-        let upload _ =    
-            let progresses =
-                if File.Exists progressesPath then
-                    use data = File.OpenRead(progressesPath)
-                    readJsons<RIO.Progress> data 
-                    |> Seq.toArray 
-                    |> RIO.cleanProgresses
-                else Array.zeroCreate<RIO.Progress> 0
-            
-            use progressStream = File.Create(progressesPath)
-            writeJsons progressStream progresses
-
-            let cs = new CancellationTokenSource()
-            
-            let notifyCount = ref -1
-            let notify (p : RIO.Progress) =  
-                incr notifyCount
-                writeJson progressStream p
-                if unref notifyCount = notifyCancelCount then
-                    cs.Cancel()
-            
-            let extra = {
-                RIO.rputExtra with
-                    RIO.progresses = progresses
-                    RIO.notify = notify
-            }
-
-            use input = File.OpenRead bigPath
-            let work = RIO.rput c token key input extra 
-            try Async.RunSynchronously(work, -1, cs.Token)
-            with | :? OperationCanceledException -> 
-                Error { error = "Upload not done yet and just try again" }
+        let cancelCount = 10
         
         let rec loop count =
-            match upload() with
+            match this.RPutCancel(cancelCount, progressesPath, key) with
             | Succ succ ->
                 RS.delete c en |> ignoreRetSynchro
                 Assert.AreEqual(bigQETag, succ.hash)

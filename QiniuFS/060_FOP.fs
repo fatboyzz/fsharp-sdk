@@ -6,6 +6,14 @@ open System.Net
 open Util
 open Client
 
+type SaveAs = {
+    entry : Entry
+}
+
+let private saveAsToUri (param : SaveAs) =
+    String.Format("saveas/{0}", param.entry.Encoded)
+
+
 type ImageView2 = {
     Mode : Int32
     W : Int32
@@ -27,14 +35,9 @@ let private imageView2ToUri (param : ImageView2) =
         if nullOrEmpty param.Format |> not then yield "format" + param.Format
     } |> concat
 
-let private parseImageView2 (code : HttpStatusCode, data : Stream) =
-    match accepted code with
-    | true -> Succ data
-    | false -> streamToString data |> jsonToObject<Error> |> Error
-
 let fopImageView2 (url : String) = 
     let buf = Array.zeroCreate (1 <<< 15) // 32K
-    requestUrl url |> responseStream buf |>> parseImageView2
+    requestUrl url |> responseStream buf
 
 
 let private imageInfoToUri = "imageInfo"
@@ -48,13 +51,14 @@ type ImageInfoSucc = {
 }
 
 let fopImageInfo (url : String) =
-    requestUrl url |> responseJson |>> parseJson Ret<ImageInfoSucc>.Succ
+    requestUrl url |> responseJson<ImageInfoSucc>
 
 
 type Fop =
 | Tee of Fop[]
 | Pipe of Fop[]
-| Raw of String
+| Uri of String
+| SaveAs of SaveAs
 | ImageView2 of ImageView2
 | ImageInfo
 
@@ -63,7 +67,8 @@ let rec fopToUri (fop : Fop) =
         match fop with
         | Tee fops -> yield! fopsToUri ";" fops
         | Pipe fops -> yield! fopsToUri "|" fops
-        | Raw raw -> yield raw
+        | Uri uri -> yield uri
+        | SaveAs param -> yield saveAsToUri param
         | ImageView2 param -> yield imageView2ToUri param
         | ImageInfo -> yield imageInfoToUri
     }
@@ -72,4 +77,3 @@ and private fopsToUri (sep : String) (fops : seq<Fop>) =
     Seq.map fopToUri fops 
     |> interpolate (seq { yield sep })
     |> Seq.concat
-

@@ -70,11 +70,11 @@
     <Compile Include="..\QiniuFS\050_Client.fs">
       <Link>050_Client.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\055_FOP.fs">
-      <Link>055_FOP.fs</Link>
+    <Compile Include="..\QiniuFS\060_FOP.fs">
+      <Link>060_FOP.fs</Link>
     </Compile>
-    <Compile Include="..\QiniuFS\058_PFOP.fs">
-      <Link>058_PFOP.fs</Link>
+    <Compile Include="..\QiniuFS\070_PFOP.fs">
+      <Link>070_PFOP.fs</Link>
     </Compile>
     <Compile Include="..\QiniuFS\080_IO.fs">
       <Link>080_IO.fs</Link>

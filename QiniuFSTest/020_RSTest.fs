@@ -7,7 +7,7 @@ open NUnit.Framework
 open QiniuFS
 open QiniuFS.Util
 open QiniuFS.Client
-open TestBase
+open Base
 
 [<TestFixture>]
 type RSTest() =
@@ -55,8 +55,8 @@ type RSTest() =
         |]
         |> RS.batch c
         |> Async.RunSynchronously
-        |> Seq.iter ignoreRet
-
+        |> Array.map pickRet
+        |> ignore
         Assert.AreEqual("b", getString c "a.txt")
         Assert.AreEqual("a", getString c "b.txt")
         RS.delete c (entryOf "a.txt") |> ignoreRetSynchro

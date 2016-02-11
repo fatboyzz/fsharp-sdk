@@ -6,7 +6,7 @@ open NUnit.Framework
 open QiniuFS
 open QiniuFS.Util
 open QiniuFS.Client
-open TestBase
+open Base
 
 [<TestFixture>]
 type DTest() =
@@ -22,23 +22,19 @@ type DTest() =
 
     [<Test>]
     member this.DTest() =
-        async {
-            do! IO.putFile c (uptoken smallKey) smallKey smallPath IO.putExtra |>> ignoreRet
-            do! D.downFile smallUrl D.downExtra downSmallPath |>> ignoreRet
-            let downQETag = QETag.hashFile downSmallPath
-            if File.Exists downSmallPath then File.Delete downSmallPath
-            do! RS.delete c smallEntry |>> ignoreRet
-            Assert.AreEqual(smallQETag, downQETag)
-        } |> Async.RunSynchronously
+        IO.putFile c (uptoken smallKey) smallKey smallPath IO.putExtra |> ignoreRetSynchro
+        D.downFile smallUrl D.downExtra downSmallPath |> ignoreRetSynchro
+        let downQETag = QETag.hashFile downSmallPath
+        if File.Exists downSmallPath then File.Delete downSmallPath
+        RS.delete c smallEntry |> ignoreRetSynchro
+        Assert.AreEqual(smallQETag, downQETag)
 
     [<Test>]
     member this.RDTest() =
-        async {
-            do! IO.putFile c (uptoken bigKey) bigKey bigPath IO.putExtra |>> ignoreRet
-            do! RD.rdownFile bigUrl RD.rdownExtra downBigPath |>> ignoreRet
-            let downQETag = QETag.hashFile downBigPath
-            if File.Exists downBigPath then File.Delete downBigPath
-            do! RS.delete c bigEntry |>> ignoreRet
-            Assert.AreEqual(bigQETag, downQETag)
-        } |> Async.RunSynchronously
+        IO.putFile c (uptoken bigKey) bigKey bigPath IO.putExtra |> ignoreRetSynchro
+        RD.rdownFile bigUrl RD.rdownExtra downBigPath |> ignoreRetSynchro
+        let downQETag = QETag.hashFile downBigPath
+        if File.Exists downBigPath then File.Delete downBigPath
+        RS.delete c bigEntry |> ignoreRetSynchro
+        Assert.AreEqual(bigQETag, downQETag)
         

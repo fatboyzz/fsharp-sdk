@@ -1,4 +1,4 @@
-﻿module QiniuFSTest.TestBase
+﻿module QiniuFSTest.Base
 
 open System
 open System.IO
@@ -22,10 +22,10 @@ let tc =
     File.ReadAllText(Path.Combine(testPath, testConfig)) 
     |> jsonToObject<TestConfig>
 
-let c = client {
+let c = client { 
     config with
         accessKey = tc.ACCESS_KEY
-        secretKey = tc.SECRET_KEY
+        secretKey = tc.SECRET_KEY 
 }
 
 let r = new Random(int32 (DateTime.Now.Ticks &&& 0xFFFFL))
@@ -60,6 +60,9 @@ let bigQETag = using (File.OpenRead bigPath) QETag.hash
 let gogopherDomain = "developer.qiniu.com"
 let gogopherKey = "resource/gogopher.jpg"
     
+let pickRetSynchro (ret : Async<Ret<'a>>) =
+    ret |>> pickRet |> Async.RunSynchronously
+
 let ignoreRetSynchro (ret : Async<Ret<'a>>) =
     ret |>> ignoreRet |> Async.RunSynchronously
 
