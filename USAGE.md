@@ -95,7 +95,7 @@ IO.put c uptoken key stream IO.putExtra
 
 ```f#
 RIO.rput c uptoken key stream RIO.rputExtra
-|> Async.RunSynchronously |> checkRPutRet
+|> Async.RunSynchronously |> pickRet
 ```
 
 ## 大文件上传，记录断点信息 (4M 以上，分块，并行，模块 IO、RIO)
@@ -118,9 +118,9 @@ type Progress = {
 }
 ```
 
-* 上传过程中文件先被切割成 block (默认 4M)，多个 block 并行上传。
-* block 内部， 一次 http 连接最多上传一个 chunk (默认 1M)，同一 block 的多个 chunk 串行上传。
-* chunk 上传成功了才会生成 Progress 。
+ * 上传过程中文件先被切割成 block (默认 4M)，多个 block 并行上传。
+ * block 内部， 一次 http 连接最多上传一个 chunk (默认 1M)，同一 block 的多个 chunk 串行上传。
+ * chunk 上传成功了才会生成 Progress 。
 
 - 上传时需要设置 RIO.RputExtra 中的 progresses 和 notify
 
@@ -138,9 +138,9 @@ type RPutExtra = {
 }
 ```
 
-* progresses 是上次上传时记录下的所有 Progress，没有记录可以是空数组。
-* notify 是在 chunk 下载成功后的回调函数，这里应该尽快序列化 Progress 。
-* notify 回调之前已经加了锁，保证同一时间只有一个线程回调 notify 。
+ * progresses 是上次上传时记录下的所有 Progress，没有记录可以是空数组。
+ * notify 是在 chunk 下载成功后的回调函数，这里应该尽快序列化 Progress 。
+ * notify 回调之前已经加了锁，保证同一时间只有一个线程回调 notify 。
 
 - 下面代码使用 Json 序列化 Progress
 
@@ -178,7 +178,7 @@ let url = IO.privateUrl c domain key deadline
 
 ```f#
 D.down url D.downExtra path
-|> Async.RunSynchronously |> checkDownRet
+|> Async.RunSynchronously |> pickRet
 ```
 
 ## 大文件下载 (分块，并行，模块 IO、RD)
@@ -188,7 +188,7 @@ D.down url D.downExtra path
 
 ```f#
 RD.rdown url RD.rdownExtra path
-|> Async.RunSynchronously |> checkRDownRet	
+|> Async.RunSynchronously |> pickRet	
 ```
 
 ## 大文件下载，记录断点信息 (4M 以上，分块，并行，模块 IO、RIO)
