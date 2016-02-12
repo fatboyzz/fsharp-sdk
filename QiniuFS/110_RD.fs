@@ -47,7 +47,7 @@ type private ContentRange = {
     
 let rdownExtra = {
     blockSize = 1 <<< 22 // 4M
-    chunkSize = 1 <<< 21 // 2M
+    chunkSize = 1 <<< 20 // 1M
     bufSize = 1 <<< 15 // 32K
     tryTimes = 3
     worker = 2
@@ -96,16 +96,15 @@ let private block (param : RDownParam) (ctx : BlockCtx) =
         async {
             let reqLength = min extra.chunkSize (ctx.blockSize - offset)
             let req = requestRange offset reqLength
-            let data = new MemoryStream()
-            let! code = responseCopy (buf.Force()) req data
-            match accepted code with
-            | true ->
+            let! ret = responseStream (buf.Force()) req
+            match ret with
+            | Succ data ->
                 ctx.writeAt (blockStart + int64 offset) (data.ToArray())
                 let next = { offset = offset + int32 data.Length }
                 ctx.notify { blockId = ctx.blockId; blockSize = ctx.blockSize; ret = next }
                 return Succ next
-            | false ->
-                return Error { error = String.Format("Response chunk with status code {0}", code) }
+            | Error e -> 
+                return Error e
         }
 
     let rec loop (times : Int32) (prev : ChunkSucc) (cur : Ret<ChunkSucc>) =

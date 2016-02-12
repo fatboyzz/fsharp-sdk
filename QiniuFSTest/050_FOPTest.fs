@@ -16,7 +16,7 @@ type FOPTest() =
         let fop = 
             Pipe [|
                 ImageView2 { imageView2 with Mode = 1; W = w; H = h }
-                ImageInfo
+                Uri "imageInfo"
             |]
         let url = IO.publicUrlFop gogopherDomain gogopherKey fop
         let info = fopImageInfo url |> pickRetSynchro

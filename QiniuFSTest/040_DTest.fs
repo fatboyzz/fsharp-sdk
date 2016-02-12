@@ -29,7 +29,7 @@ type DTest() =
 
     [<Test>]
     member this.RDTest() =
-        IO.putFile c (uptoken bigKey) bigKey bigPath IO.putExtra |> ignoreRetSynchro
+        RIO.rputFile c (uptoken bigKey) bigKey bigPath RIO.rputExtra |> ignoreRetSynchro
         RD.rdownFile bigUrl RD.rdownExtra downBigPath |> ignoreRetSynchro
         let downQETag = QETag.hashFile downBigPath
         if File.Exists downBigPath then File.Delete downBigPath

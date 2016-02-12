@@ -40,8 +40,8 @@ type IOTest() =
 
     member this.RPutProgresses(progressesPath : String) =
         if File.Exists progressesPath then
-            use data = File.OpenRead(progressesPath)
-            readJsons<RIO.Progress> data 
+            use progressInput = File.OpenRead(progressesPath)
+            readJsons<RIO.Progress> progressInput
             |> Seq.toArray 
             |> RIO.cleanProgresses
         else Array.zeroCreate<RIO.Progress> 0
@@ -53,14 +53,14 @@ type IOTest() =
 
     member this.RPutCancel(cancelCount : Int32, progressesPath : String, key : String) =
         let progresses = this.RPutProgresses progressesPath
-        use progressStream = File.Create(progressesPath)
-        writeJsons progressStream progresses
+        use progressOutput = File.OpenWrite(progressesPath)
+        writeJsons progressOutput progresses
 
         let cs = new CancellationTokenSource()
         let notifyCount = ref -1
         let notify (p : RIO.Progress) =  
             incr notifyCount
-            writeJson progressStream p
+            writeJson progressOutput p
             if unref notifyCount >= cancelCount then
                 cs.Cancel()
             

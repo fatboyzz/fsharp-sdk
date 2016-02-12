@@ -63,14 +63,11 @@ type private BlockCtx = {
 let chunkSucc = Zero.instance<ChunkSucc>
 
 let cleanProgresses (ps : Progress[]) =
-    let rec loop (acc : Progress list) (rps : Progress list) =
-        match rps with
-        | [] -> acc |> List.rev |> List.toArray
-        | head :: tail -> 
-            match acc |> List.tryFind (fun p -> p.blockId = head.blockId) with
-            | Some p -> loop acc tail
-            | None -> loop (head :: acc) tail
-    loop [] (ps |> Array.rev |> Array.toList)
+    ps
+    |> Array.rev
+    |> Seq.distinctBy (fun p -> p.blockId)
+    |> Seq.toArray
+    |> Array.rev
     
 let private block (param : RPutParam) (ctx : BlockCtx) =
     let extra = param.extra
@@ -99,7 +96,7 @@ let private block (param : RPutParam) (ctx : BlockCtx) =
                 ctx.notify { blockId = ctx.blockId; blockSize = ctx.blockSize; ret = succ }; 
                 return ret
             | Succ succ ->
-                return Error({ error = "Invalid chunk crc32" })
+                return Error { error = "Invalid chunk crc32" }
             | _ -> return ret
         }
 
@@ -140,8 +137,8 @@ let private mkfile (param : RPutParam) (total : Int64) (ctxs : String seq) =
         req.ContentType <- "text/plain"
         req.Headers.Add(HttpRequestHeader.Authorization, "UpToken " + param.token)
         use! output = requestStream req
-        let body = ctxs |> String.concat "," |> stringToUtf8
-        output.Write(body, 0, body.Length)
+        let body = ctxs |> interpolate "," |> concatUtf8
+        do! output.AsyncWrite(body, 0, body.Length)
         return req
     } |!> responseJson<PutSucc>
 
@@ -172,17 +169,12 @@ let private doRput (param : RPutParam) (input : Stream) =
             | None -> return! blockCtx chunkSucc |> block param
         }
 
-    let pickctx (r : Ret<ChunkSucc>) =
-        match r with
-        | Succ succ -> succ.ctx
-        | _ -> ""
-
     async {
         let! rets = [| 0 .. blockCount - 1 |]
                     |> Array.map work
                     |> limitedParallel extra.worker
-        let ctxs = Array.map pickctx rets
-        if Array.forall notNullOrEmpty ctxs then
+        if Array.forall checkRet rets then
+            let ctxs = Array.map (fun (ret) -> (pickRet ret).ctx) rets
             return! mkfile param input.Length ctxs
         else return Error { error = "Block not all done" }
     }

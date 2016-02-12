@@ -52,7 +52,7 @@ let smallQETag = using (File.OpenRead smallPath) QETag.hash
 
 let bigName = "big.dat"
 let bigPath = Path.Combine(testPath, bigName)
-do genNotExist bigPath (1 <<< 23) // 8M
+do genNotExist bigPath ((1 <<< 23) + (1 <<< 21)) // 10M
 let bigQETag = using (File.OpenRead bigPath) QETag.hash
 
 let gogopherDomain = "developer.qiniu.com"
