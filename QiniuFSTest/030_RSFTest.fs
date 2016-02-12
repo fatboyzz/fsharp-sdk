@@ -3,8 +3,6 @@
 open System
 open NUnit.Framework
 open QiniuFS
-open QiniuFS.Util
-open QiniuFS.Client
 open Base
 
 [<TestFixture>]

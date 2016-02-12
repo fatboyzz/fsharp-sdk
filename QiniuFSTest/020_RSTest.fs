@@ -5,8 +5,6 @@ open System.IO
 open System.Net
 open NUnit.Framework
 open QiniuFS
-open QiniuFS.Util
-open QiniuFS.Client
 open Base
 
 [<TestFixture>]

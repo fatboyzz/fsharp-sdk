@@ -1,4 +1,5 @@
-﻿module QiniuFS.Util
+﻿[<AutoOpen>]
+module QiniuFS.Util
 
 open System
 open System.IO

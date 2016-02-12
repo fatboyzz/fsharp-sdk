@@ -4,8 +4,6 @@ open System
 open System.IO
 open System.Net
 open Newtonsoft.Json
-open Util
-open Client
 open FOP
 
 type PFopSucc = {

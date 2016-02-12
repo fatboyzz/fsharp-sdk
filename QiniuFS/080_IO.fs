@@ -4,8 +4,6 @@ open System
 open System.IO
 open System.Net
 open System.Collections.Generic
-open Util
-open Client
 open FOP
 
 type PutPolicy = {

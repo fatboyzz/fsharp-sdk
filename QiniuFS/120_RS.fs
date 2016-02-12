@@ -5,8 +5,6 @@ open System.IO
 open System.Net
 open System.Text
 open Newtonsoft.Json
-open Util
-open Client
 
 type StatSucc = {
     hash : String

@@ -1,8 +1,6 @@
 ﻿module QiniuFS.RSF
 
 open System
-open Util
-open Client
 open RS
 
 type ListItem = {

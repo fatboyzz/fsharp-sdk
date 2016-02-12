@@ -1,11 +1,11 @@
-﻿module QiniuFS.Client
+﻿[<AutoOpen>]
+module QiniuFS.Client
 
 open System
 open System.IO
 open System.Net
 open System.Security.Cryptography
 open Newtonsoft.Json
-open Util
 
 type Config = {
     accessKey : String

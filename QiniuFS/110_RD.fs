@@ -3,8 +3,6 @@
 open System
 open System.IO
 open System.Net
-open Util
-open Client
 open D
 
 type ChunkSucc = {

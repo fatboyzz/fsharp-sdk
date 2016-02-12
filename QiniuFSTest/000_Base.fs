@@ -5,8 +5,6 @@ open System.IO
 open System.Net
 open System.Security.Cryptography
 open QiniuFS
-open QiniuFS.Util
-open QiniuFS.Client
 
 let testPath = Environment.GetEnvironmentVariable("QINIU_TEST_PATH")
 let testConfig = "TestConfig.json"

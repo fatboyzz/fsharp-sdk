@@ -50,8 +50,8 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <None Include="packages.config" />
-    <Compile Include="..\QiniuFSTest\000_TestBase.fs">
-      <Link>000_TestBase.fs</Link>
+    <Compile Include="..\QiniuFSTest\000_Base.fs">
+      <Link>000_Base.fs</Link>
     </Compile>
     <Compile Include="..\QiniuFSTest\010_IOTest.fs">
       <Link>010_IOTest.fs</Link>

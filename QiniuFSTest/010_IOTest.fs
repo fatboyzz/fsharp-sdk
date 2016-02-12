@@ -7,8 +7,6 @@ open System.Threading
 open Newtonsoft.Json
 open NUnit.Framework
 open QiniuFS
-open QiniuFS.Util
-open QiniuFS.Client
 open Base
 
 [<TestFixture>]

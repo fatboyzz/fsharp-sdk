@@ -5,8 +5,6 @@ open System.IO
 open System.Net
 open System.Collections
 open System.Threading
-open Util
-open Client
 open IO
 
 type ChunkSucc = {
