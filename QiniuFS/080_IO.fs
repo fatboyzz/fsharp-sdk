@@ -144,7 +144,7 @@ let private doput (param : PutParam) (input : Stream) =
             seq {
                 let extra = param.extra
                 yield KVPart("token", param.token)
-                if nullOrEmpty param.key |> not then 
+                if notNullOrEmpty param.key then 
                     yield KVPart("key", param.key)
                 yield! extra.customs |> Seq.filter check |> Seq.map KVPart
                 yield! crcPart param.extra input

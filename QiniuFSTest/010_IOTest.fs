@@ -12,21 +12,34 @@ open Base
 [<TestFixture>]
 type IOTest() =
 
-    member private this.PutWithExtraAsync (extra : IO.PutExtra) =
+    [<Test>]
+    member this.PutTest() =
         let key = String.Format("{0}_{1}", ticks(), smallName)
         let en = entry tc.BUCKET key
         let token = uptoken key
-        let ret = IO.putFile c token key smallPath extra |> pickRetSynchro
+        let ret = IO.putFile c token key smallPath IO.putExtra |> pickRetSynchro
         RS.delete c en |> ignoreRetSynchro
         Assert.AreEqual(smallQETag, ret.hash)
 
     [<Test>]
-    member this.PutTest() =
-        this.PutWithExtraAsync IO.putExtra 
+    member this.PutCrcTest() =
+        let key = String.Format("{0}_{1}", ticks(), smallName)
+        let en = entry tc.BUCKET key
+        let extra = { IO.putExtra with checkCrc = IO.CheckCrc.Auto }
+        let token = uptoken key
+        let ret = IO.putFile c token key smallPath extra |> pickRetSynchro
+        RS.delete c en |> ignoreRetSynchro
+        Assert.AreEqual(smallQETag, ret.hash) 
 
     [<Test>]
-    member this.PutCrcTest() =
-        this.PutWithExtraAsync { IO.putExtra with checkCrc = IO.CheckCrc.Auto }
+    member this.PutWithoutKeyTest() =
+        let key = ""
+        let en = entry tc.BUCKET key
+        let token = uptoken key
+        let ret = IO.putFile c token key smallPath IO.putExtra |> pickRetSynchro
+        let enHash = entry tc.BUCKET ret.hash
+        RS.delete c enHash |> ignoreRetSynchro
+        Assert.AreEqual(smallQETag, ret.hash)
 
     [<Test>]
     member this.RPutTest() =

@@ -60,7 +60,9 @@ type Entry =
         { Bucket = bucket; Key = key; }
 
     member this.Scope = 
-        String.Format("{0}:{1}", this.Bucket, this.Key) 
+        if notNullOrEmpty this.Key 
+        then String.Format("{0}:{1}", this.Bucket, this.Key)
+        else String.Format("{0}", this.Bucket)
 
     member this.Encoded =
         this.Scope |> Base64Safe.fromString
